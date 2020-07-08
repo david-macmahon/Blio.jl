@@ -1,5 +1,14 @@
+"""
+Breakthrough Listem I/O for Julia.
+
+Currently supports GuppiRaw and Filterbank file formats.
+"""
 module Blio
 
-greet() = print("Hello World!")
+include("GuppiRaw.jl")
+include("Filterbank.jl")
+
+export GuppiRaw
+export Filterbank
 
 end # module
