@@ -34,6 +34,50 @@ struct Header
   end
 end
 
+function Base.setindex!(h::Header, val::Any, key::Symbol)
+  setindex!(getfield(h, :dict), val, key)
+end
+
+function Base.setindex!(h::Header, val::Any, key::String)
+  setindex!(h, val, Symbol(lowercase(key)))
+end
+
+function Base.getindex(h::Header, key::Symbol)
+  getindex(getfield(h, :dict), key)
+end
+
+function Base.getindex(h::Header, key::String)
+  getindex(h, Symbol(lowercase(key)))
+end
+
+function Base.get(h::Header, key::Symbol, default=nothing)
+  get(getfield(h, :dict), key, default)
+end
+
+function Base.get(h::Header, key::String, default=nothing)
+  get(h, Symbol(lowercase(key)), default)
+end
+
+function Base.getproperty(h::Header, sym::Symbol)
+  get(h, sym, nothing)
+end
+
+function Base.length(h::Header)
+  length(getfield(h, :dict))
+end
+
+function Base.show(h::Header)
+  show(getfield(h, :dict))
+end
+
+function Base.display(h::Header)
+  display(getfield(h, :dict))
+end
+
+function Base.propertynames(h::Header)
+  Tuple(keys(getfield(h, :dict)))
+end
+
 """
 # Reads a native-endian Int32 from io
 """

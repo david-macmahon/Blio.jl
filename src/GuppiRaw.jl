@@ -45,48 +45,48 @@ struct Header
   end
 end
 
-function Base.setindex!(gh::Header, val::Any, key::Symbol)
-  setindex!(getfield(gh, :dict), val, key)
+function Base.setindex!(h::Header, val::Any, key::Symbol)
+  setindex!(getfield(h, :dict), val, key)
 end
 
-function Base.setindex!(gh::Header, val::Any, key::String)
-  setindex!(gh, val, Symbol(lowercase(key)))
+function Base.setindex!(h::Header, val::Any, key::String)
+  setindex!(h, val, Symbol(lowercase(key)))
 end
 
-function Base.getindex(gh::Header, key::Symbol)
-  getindex(getfield(gh, :dict), key)
+function Base.getindex(h::Header, key::Symbol)
+  getindex(getfield(h, :dict), key)
 end
 
-function Base.getindex(gh::Header, key::String)
-  getindex(gh, Symbol(lowercase(key)))
+function Base.getindex(h::Header, key::String)
+  getindex(h, Symbol(lowercase(key)))
 end
 
-function Base.get(gh::Header, key::Symbol, default=nothing)
-  get(getfield(gh, :dict), key, default)
+function Base.get(h::Header, key::Symbol, default=nothing)
+  get(getfield(h, :dict), key, default)
 end
 
-function Base.get(gh::Header, key::String, default=nothing)
-  get(gh, Symbol(lowercase(key)), default)
+function Base.get(h::Header, key::String, default=nothing)
+  get(h, Symbol(lowercase(key)), default)
 end
 
-function Base.getproperty(gh::Header, sym::Symbol)
-  get(gh, sym, nothing)
+function Base.getproperty(h::Header, sym::Symbol)
+  get(h, sym, nothing)
 end
 
-function Base.length(gh::Header)
-  length(getfield(gh, :dict))
+function Base.length(h::Header)
+  length(getfield(h, :dict))
 end
 
-function Base.show(gh::Header)
-  show(getfield(gh, :dict))
+function Base.show(h::Header)
+  show(getfield(h, :dict))
 end
 
-function Base.display(gh::Header)
-  display(getfield(gh, :dict))
+function Base.display(h::Header)
+  display(getfield(h, :dict))
 end
 
-function Base.propertynames(gh::Header)
-  Tuple(keys(getfield(gh, :dict)))
+function Base.propertynames(h::Header)
+  Tuple(keys(getfield(h, :dict)))
 end
 
 """
