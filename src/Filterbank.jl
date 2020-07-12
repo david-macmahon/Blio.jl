@@ -265,6 +265,8 @@ function Base.Array(fbh::Filterbank.Header, nspec::Integer=1;
   @assert nbits == 8 || nbits == 32 "unsupported nbits ($nbits)"
 
   nifs = get(fbh, :nifs, 1)
+  max_spec = 8 * get(fbh, :data_size, 0) ÷ (nchans * nifs * nbits)
+  @assert nspec <= max_spec "nspec too big ($nspec > $max_spec)"
 
   if nbits == 8
     eltype = Int8
