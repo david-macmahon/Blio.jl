@@ -78,6 +78,10 @@ function Base.propertynames(h::Header)
   Tuple(keys(getfield(h, :dict)))
 end
 
+function Base.empty!(h::Header)
+  empty!(getfield(h, :dict))
+end
+
 """
 # Reads a native-endian Int32 from io
 """
@@ -194,7 +198,7 @@ function read_header_item(io::IO)
 end
 
 """
-    read!(io::IO, fbh::Filterbank.Header)
+    read!(io::IO, fbh::Filterbank.Header)::Filterbank.Header
 
 Read and parse Filterbank header from `io` and populate `fbh`.  Add
 `header_size` and `data_size` fields based on header size and file length.
@@ -203,7 +207,7 @@ If `io` was at the start of the file, it will be positioned at the start of
 data after this function returns.  If `io` was positioned elsewhere, that
 position will remain unchanged after this function returns.
 """
-function read!(io::IO, fbh::Header)::Header
+function Base.read!(io::IO, fbh::Filterbank.Header)::Filterbank.Header
   # If pos is not 0 then save current pos, rewind and (re-)read the
   # (possibly changed?) header.
   save_pos = position(io)
@@ -241,8 +245,8 @@ function read!(io::IO, fbh::Header)::Header
 end
 
 """
-    data_array(fbh::Filterbank.Header, nspec::Int=1)::Array{Complex{Integer},3}
-    data_array(fbh, nspec=1; dropdims::Bool=true)::Array{Complex{Integer},N}
+    Array(fbh::Filterbank.Header, nspec::Int=1)
+    Array(fbh, nspec=1; dropdims::Bool=true)
 
 Return an uninitialized Array sized for `nspec` spectra of Filterbank data as
 specified by metadata in `header`, specifically the `:nchans`, `nifs`, and
@@ -252,15 +256,17 @@ specified by metadata in `header`, specifically the `:nchans`, `nifs`, and
 The Array will be dimensioned as [chan, IF, spec] unless `dropdims` is true in
 which case any singletone dimensions will be eliminated.
 """
-function data_array(fbh::Header, nspec::Integer=1; dropdims::Bool=false)
+function Base.Array(fbh::Filterbank.Header, nspec::Integer=1;
+                    dropdims::Bool=false)::Union{Array{Int8},Array{Float32}}
   nchans = get(fbh, :nchans, 0)
+  @assert nchans > 0 "invalid nchans ($nchans)"
+
   nbits = get(fbh, :nbits, 32)
+  @assert nbits == 8 || nbits == 32 "unsupported nbits ($nbits)"
+
   nifs = get(fbh, :nifs, 1)
 
-  @assert fbh[:nchans] > 0                    "invalid nchans ($(fbh[:nchans]))"
-  @assert fbh[:nbits] == 8 || fbh[:nbits] == 32 "unsupported nbits ($(fbh[:nbits]))"
-
-  if fbh[:nbits] == 8
+  if nbits == 8
     eltype = Int8
   else
     eltype = Float32
@@ -281,7 +287,7 @@ Mask the center (aka "DC") fine channel of all the coarse channels that span
 the first dimentsion of `a`.  `ncoarse` must be the total number of coarse
 channels in `a`.
 """
-function maskdc!(a::Array, ncoarse::Integer)::Nothing
+function maskdc!(a::Array{Number}, ncoarse::Integer)::Nothing
   @assert size(a,1) % ncoarse == 0 "invalid ncoarse ($ncoarse)"
   nfpc = size(a,1) ÷ ncoarse
   b = reshape(a, nfpc, :)

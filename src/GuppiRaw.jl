@@ -9,11 +9,11 @@ See also:
 module GuppiRaw
 
 export Header
-export read!
+#-export read!
 export data_array
 
 using OrderedCollections
-import Base.read!
+#-import Base.read!
 
 # Header record size
 const HEADER_REC_SIZE = 80
@@ -89,8 +89,12 @@ function Base.propertynames(h::Header)
   Tuple(keys(getfield(h, :dict)))
 end
 
+function Base.empty!(h::Header)
+  empty!(getfield(h, :dict))
+end
+
 """
-    read!(io::IO, gh::Header)::Header
+    read!(io::IO, gh::GuppiRaw.Header)::GuppiRaw.Header
 
 Read a GUPPI header from `io` and populate `gh`.
 
@@ -98,16 +102,15 @@ If not enough bytes remain in the file, empty gh to indicate EOF.  Otherwise
 parse header, seek `io` to the start of the data block following the header.
 Always return gh (or throw error if GUPPI header is not found).
 """
-function read!(io::IO, gh::Header)
-  # Get fields
-  dict = getfield(gh, :dict)
+function Base.read!(io::IO, gh::GuppiRaw.Header)::GuppiRaw.Header
+  # Get buf from Header
   buf = getfield(gh, :buf)
   @assert size(buf, 1) == HEADER_REC_SIZE
 
-  # Make dict empty
-  empty!(dict)
+  # Make gh empty
+  empty!(gh)
 
-  # If not enough bytes remaining, bail out
+  # If not enough bytes remaining (EOF), bail out
   if filesize(io) - position(io) < sizeof(buf)
     return gh
   end
@@ -135,7 +138,7 @@ function read!(io::IO, gh::Header)
     elseif !isnothing(tryparse(Float64, v))
       v = parse(Float64, v)
     end
-    dict[k] = v
+    gh[k] = v
   end
 
   # Seek io to just after END rec
@@ -149,8 +152,11 @@ function read!(io::IO, gh::Header)
   gh
 end
 
+# This is a type alias for possible GuppiRaw data Arrays
+RawArray = Union{Array{Complex{Int8},3},Array{Complex{Int16},3}}
+
 """
-    data_array(gh::GuppiRaw.Header, nchan::Int=0)::Array{Complex{Integer},3}
+    Array(gh::GuppiRaw.Header, nchan::Int=0)::Array{Complex{Integer},3}
 
 Return an uninitialized 3 dimensional Array sized for `nchan` channels of RAW
 data as specified by metadata in `header`, specifically the `BLOCSIZE`,
@@ -161,15 +167,15 @@ data type of the Array elements will be `Complex{Int8}` when `NBITS == 8` or
 The Array will be dimensioned as [pol, time, chan] to match the RAW data block
 layout.
 """
-function data_array(gh::Header, nchan::Int=0)::Array{Complex{Integer},3}
-  blocsize = gh["BLOCSIZE"]
-  obsnchan = gh["OBSNCHAN"]
+function Base.Array(gh::Header, nchan::Int=0)::RawArray
+  blocsize = gh.blocsize
+  obsnchan = gh.obsnchan
   if nchan <= 0
     nchan = obsnchan
   end
-  npol = get(gh, "NPOL", 1) < 2 ? 1 : 2
-  nbits = get(gh, "NBITS", 8)
-  @assert nbits == 8 || nbits == 16
+  npol = get(gh, :npol, 1) < 2 ? 1 : 2
+  nbits = get(gh, :nbits, 8)
+  @assert nbits == 8 || nbits == 16 "unsupported nbits ($nbits)"
   eltype = nbits == 8 ? Int8 : Int16
   ntime, rem = divrem(8 * blocsize, 2 * obsnchan * npol * nbits)
   @assert rem == 0
