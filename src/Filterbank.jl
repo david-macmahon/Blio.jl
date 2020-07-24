@@ -4,10 +4,12 @@ Module for interacting with Filterbank files.
 See also:
 [`Filterbank.Header`](@ref),
 [`read!(io::IO, fbh::Filterbank.Header)`](@ref),
-[`data_array(fbh::Filterbank.Header[, nchan::Int=1])`](@ref)
+[`Array(fbh::Filterbank.Header, nspec::Int=1; dropdims::Bool=false)`](@ref)
+[`maskdc!(a::Array{Number}, ncoarse::Integer)`](@ref)
 """
 module Filterbank
 
+export Header
 export read_int
 export read_uint
 export read_double
@@ -15,15 +17,12 @@ export read_string
 export read_symbol
 export read_angle
 export read_header_item
-export Header
-export read!
-export data_array
 export maskdc!
 
 using OrderedCollections
 
 """
-Type used to hold a GuppiRaw header
+Type used to hold a Filterbank header.  Acts very much like an OrderedDict.
 """
 struct Header
   # OrderedDict that holds the header key=value pairs
@@ -38,7 +37,7 @@ function Base.setindex!(h::Header, val::Any, key::Symbol)
   setindex!(getfield(h, :dict), val, key)
 end
 
-function Base.setindex!(h::Header, val::Any, key::String)
+function Base.setindex!(h::Header, val::Any, key::AbstractString)
   setindex!(h, val, Symbol(lowercase(key)))
 end
 
@@ -46,7 +45,7 @@ function Base.getindex(h::Header, key::Symbol)
   getindex(getfield(h, :dict), key)
 end
 
-function Base.getindex(h::Header, key::String)
+function Base.getindex(h::Header, key::AbstractString)
   getindex(h, Symbol(lowercase(key)))
 end
 
@@ -54,7 +53,7 @@ function Base.get(h::Header, key::Symbol, default=nothing)
   get(getfield(h, :dict), key, default)
 end
 
-function Base.get(h::Header, key::String, default=nothing)
+function Base.get(h::Header, key::AbstractString, default=nothing)
   get(h, Symbol(lowercase(key)), default)
 end
 
@@ -66,16 +65,12 @@ function Base.length(h::Header)
   length(getfield(h, :dict))
 end
 
-function Base.show(h::Header)
-  show(getfield(h, :dict))
-end
-
-function Base.display(h::Header)
-  display(getfield(h, :dict))
-end
-
 function Base.propertynames(h::Header)
   Tuple(keys(getfield(h, :dict)))
+end
+
+function Base.iterate(h::Header, state...)
+  iterate(getfield(h, :dict), state...)
 end
 
 function Base.empty!(h::Header)
@@ -83,34 +78,34 @@ function Base.empty!(h::Header)
 end
 
 """
-# Reads a native-endian Int32 from io
+Reads a native-endian Int32 from `io`
 """
 read_int(io::IO)::Int32 = read(io, Int32)
 
 """
-# Reads a native-endian UInt32 from io
+Reads a native-endian UInt32 from `io`
 """
 read_uint(io::IO)::UInt32 = read(io, UInt32)
 
 """
-# Reads a native-endian Float64 (aka double) from io
+Reads a native-endian Float64 (aka double) from `io`
 """
 read_double(io::IO)::Float64 = read(io, Float64)
 
 """
-# Reads a filterbank header string
+Reads a filterbank header string
 """
 read_string(io::IO)::String = String(read(io, read_uint(io)))
 
 """
-# Reads a filterbank header string as a Symbol
+Reads a filterbank header string as a Symbol
 """
 read_symbol(io::IO)::Symbol = Symbol(read(io, read_uint(io)))
 
 """
-# Reads a native-endian Float64 (aka double) in ddmmss.s (or hhmmss.s) format
-# and then converts to degrees (or hours).  This is primarily used to read
-# src_raj and src_dej header values.
+Reads a native-endian Float64 (aka double) in ddmmss.s (or hhmmss.s) format and
+then converts to degrees (or hours).  This is primarily used to read `src_raj`
+and `src_dej` header values.
 """
 function read_angle(io)::Float64
   angle = read_double(io)
@@ -188,7 +183,7 @@ function read_header_item(f::Function, io::IO)
 end
 
 """
-    read_header_item)io::IO)
+    read_header_item(io::IO)
 
 Call [`read_header_item(f::Function, io::IO)`](@ref) with `io` and
 a no-op function for `f`.  Return `(keyword, value)`.
@@ -199,6 +194,7 @@ end
 
 """
     read!(io::IO, fbh::Filterbank.Header)::Filterbank.Header
+    read!(io::IO, Filterbank.Header)::Filterbank.Header
 
 Read and parse Filterbank header from `io` and populate `fbh`.  Add
 `header_size` and `data_size` fields based on header size and file length.
@@ -243,6 +239,9 @@ function Base.read!(io::IO, fbh::Filterbank.Header)::Filterbank.Header
 
   fbh
 end
+
+# Passing type creates new instance
+Base.read!(io::IO, ::Type{Header}) = read!(io, Header())
 
 """
     Array(fbh::Filterbank.Header, nspec::Int=1)

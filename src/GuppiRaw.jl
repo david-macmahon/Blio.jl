@@ -3,17 +3,14 @@ Module for interacting with GuppiRaw files.
 
 See also:
 [`GuppiRaw.Header`](@ref),
-[`read!(io::IO, gh::GuppiRaw.Header)`](@ref),
-[`data_array(gh::GuppiRaw.Header[, nchan::Int=1])`](@ref)
+[`read!(io::IO, grh::GuppiRaw.Header)`](@ref),
+[`Array(grh::GuppiRaw.Header, nchan::Int=0)`](@ref)
 """
 module GuppiRaw
 
 export Header
-#-export read!
-export data_array
 
 using OrderedCollections
-#-import Base.read!
 
 # Header record size
 const HEADER_REC_SIZE = 80
@@ -27,7 +24,7 @@ const END = map(Int, collect("END "))
 """
 Type used to hold a GuppiRaw header
 """
-struct Header
+struct Header <: AbstractDict{Symbol, Any}
   # OrderedDict that holds the header key=value pairs
   dict::OrderedDict{Symbol, Any}
 
@@ -49,7 +46,7 @@ function Base.setindex!(h::Header, val::Any, key::Symbol)
   setindex!(getfield(h, :dict), val, key)
 end
 
-function Base.setindex!(h::Header, val::Any, key::String)
+function Base.setindex!(h::Header, val::Any, key::AbstractString)
   setindex!(h, val, Symbol(lowercase(key)))
 end
 
@@ -57,7 +54,7 @@ function Base.getindex(h::Header, key::Symbol)
   getindex(getfield(h, :dict), key)
 end
 
-function Base.getindex(h::Header, key::String)
+function Base.getindex(h::Header, key::AbstractString)
   getindex(h, Symbol(lowercase(key)))
 end
 
@@ -65,7 +62,7 @@ function Base.get(h::Header, key::Symbol, default=nothing)
   get(getfield(h, :dict), key, default)
 end
 
-function Base.get(h::Header, key::String, default=nothing)
+function Base.get(h::Header, key::AbstractString, default=nothing)
   get(h, Symbol(lowercase(key)), default)
 end
 
@@ -77,16 +74,12 @@ function Base.length(h::Header)
   length(getfield(h, :dict))
 end
 
-function Base.show(h::Header)
-  show(getfield(h, :dict))
-end
-
-function Base.display(h::Header)
-  display(getfield(h, :dict))
-end
-
 function Base.propertynames(h::Header)
   Tuple(keys(getfield(h, :dict)))
+end
+
+function Base.iterate(h::Header, state...)
+  iterate(getfield(h, :dict), state...)
 end
 
 function Base.empty!(h::Header)
@@ -94,25 +87,25 @@ function Base.empty!(h::Header)
 end
 
 """
-    read!(io::IO, gh::GuppiRaw.Header)::GuppiRaw.Header
+    read!(io::IO, grh::GuppiRaw.Header)::GuppiRaw.Header
 
-Read a GUPPI header from `io` and populate `gh`.
+Read a GUPPI header from `io` and populate `grh`.
 
-If not enough bytes remain in the file, empty gh to indicate EOF.  Otherwise
+If not enough bytes remain in the file, empty `grh` to indicate EOF.  Otherwise
 parse header, seek `io` to the start of the data block following the header.
-Always return gh (or throw error if GUPPI header is not found).
+Always return `grh` (or throw error if GUPPI header is not found).
 """
-function Base.read!(io::IO, gh::GuppiRaw.Header)::GuppiRaw.Header
+function Base.read!(io::IO, grh::GuppiRaw.Header)::GuppiRaw.Header
   # Get buf from Header
-  buf = getfield(gh, :buf)
+  buf = getfield(grh, :buf)
   @assert size(buf, 1) == HEADER_REC_SIZE
 
-  # Make gh empty
-  empty!(gh)
+  # Make grh empty
+  empty!(grh)
 
   # If not enough bytes remaining (EOF), bail out
   if filesize(io) - position(io) < sizeof(buf)
-    return gh
+    return grh
   end
 
   # Read bytes into buf
@@ -133,30 +126,33 @@ function Base.read!(io::IO, gh::GuppiRaw.Header)::GuppiRaw.Header
     v = strip(v)
     if v[1] == '\''
       v = strip(v, [' ', '\''])
-    elseif !isnothing(tryparse(Int, v))
+    elseif !isnothing(match(r"^[+-]?[0-9]+$", v))
       v = parse(Int, v)
     elseif !isnothing(tryparse(Float64, v))
       v = parse(Float64, v)
     end
-    gh[k] = v
+    grh[k] = v
   end
 
   # Seek io to just after END rec
   skip(io, HEADER_REC_SIZE*endidx - sizeof(buf))
 
   # If DIRECTIO exists and is non-zero, seek past padding
-  if get(gh, :DIRECTIO, 0) != 0
+  if get(grh, :DIRECTIO, 0) != 0
     skip(io, mod(-position(io), 512))
   end
 
-  gh
+  grh
 end
+
+# Passing type creates new instance
+Base.read!(io::IO, ::Type{Header}) = read!(io, Header())
 
 # This is a type alias for possible GuppiRaw data Arrays
 RawArray = Union{Array{Complex{Int8},3},Array{Complex{Int16},3}}
 
 """
-    Array(gh::GuppiRaw.Header, nchan::Int=0)::Array{Complex{Integer},3}
+    Array(grh::GuppiRaw.Header, nchan::Int=0)::Array{Complex{Integer},3}
 
 Return an uninitialized 3 dimensional Array sized for `nchan` channels of RAW
 data as specified by metadata in `header`, specifically the `BLOCSIZE`,
@@ -167,14 +163,14 @@ data type of the Array elements will be `Complex{Int8}` when `NBITS == 8` or
 The Array will be dimensioned as [pol, time, chan] to match the RAW data block
 layout.
 """
-function Base.Array(gh::Header, nchan::Int=0)::RawArray
-  blocsize = gh.blocsize
-  obsnchan = gh.obsnchan
+function Base.Array(grh::Header, nchan::Int=0)::RawArray
+  blocsize = grh.blocsize
+  obsnchan = grh.obsnchan
   if nchan <= 0
     nchan = obsnchan
   end
-  npol = get(gh, :npol, 1) < 2 ? 1 : 2
-  nbits = get(gh, :nbits, 8)
+  npol = get(grh, :npol, 1) < 2 ? 1 : 2
+  nbits = get(grh, :nbits, 8)
   @assert nbits == 8 || nbits == 16 "unsupported nbits ($nbits)"
   eltype = nbits == 8 ? Int8 : Int16
   ntime, rem = divrem(8 * blocsize, 2 * obsnchan * npol * nbits)
