@@ -4,12 +4,14 @@ Module for interacting with GuppiRaw files.
 See also:
 [`GuppiRaw.Header`](@ref),
 [`read!(io::IO, grh::GuppiRaw.Header)`](@ref),
+[`write(io::IO, grh::GuppiRaw.Header)`](@ref),
 [`Array(grh::GuppiRaw.Header, nchan::Int=0)`](@ref)
 """
 module GuppiRaw
 
 export Header
 
+using Printf
 using OrderedCollections
 
 # Header record size
@@ -17,6 +19,9 @@ const HEADER_REC_SIZE = 80
 
 # Maximum number of records in a header
 const HEADER_MAX_RECS = 256
+
+# Number of columns for numeric header values
+const HEADER_NUMERIC_COLS = 20
 
 # Used to detect END record
 const END = map(Int, collect("END "))
@@ -147,6 +152,67 @@ end
 
 # Passing type creates new instance
 Base.read!(io::IO, ::Type{Header}) = read!(io, Header())
+
+# write_header_item is an internal function whose methods are used to write
+# different types of values as a GUPPI raw record.
+function write_header_item(io::IO, kw::Symbol, val::Integer)
+  s = uppercase(rpad(kw,8)[1:8]) * "= " * lpad(string(val), HEADER_NUMERIC_COLS)
+  write(io, rpad(s, 80)[1:80])
+end
+
+# Not sure the best/approriate formatting to use here,
+# but this seems like a reasonable approach to start with.
+function write_header_item(io::IO, kw::Symbol, val::AbstractFloat)
+  valstr = @sprintf("%.16G", val)
+  # If no decimal point was output, redo to force one
+  if isnothing(findfirst('.', valstr))
+    if isnothing(findfirst('E', valstr))
+      valstr = @sprintf("%.1f", val)
+    else
+      valstr = @sprintf("%.1E", val)
+    end
+  end
+  s = uppercase(rpad(kw,8)[1:8]) *  "= " * lpad(valstr, HEADER_NUMERIC_COLS)
+  write(io, rpad(s, 80)[1:80])
+end
+
+function write_header_item(io::IO, kw::Symbol, val::AbstractIrrational)
+  write_header_item(io, kw, Float64(val))
+end
+
+function write_header_item(io::IO, kw::Symbol, val::Rational)
+  write_header_item(io, kw, Float64(val))
+end
+
+function write_header_item(io::IO, kw::Symbol, val::AbstractString)
+  s = uppercase(rpad(kw,8)[1:8]) * "= '" * rpad(val, 8) * "'"
+  write(io, rpad(s, 80)[1:80])
+end
+
+"""
+    write(io::IO, grh::GuppiRaw.Header)
+
+Write `grh` as a GUPPI header to `io`.
+"""
+function Base.write(io::IO, grh::GuppiRaw.Header)
+  bytes_written = 0
+
+  for (k,v) in grh
+    bytes_written += write_header_item(io, k, v)
+  end
+
+  bytes_written += write(io, rpad("END", 80));
+
+  # Handle DIRECTIO padding
+  if get(grh, :directio, 0) != 0
+    padding = mod(-bytes_written, 512)
+    if padding != 0
+      bytes_written += write(io, zeros(UInt8, padding))
+    end
+  end
+
+  return bytes_written
+end
 
 # This is a type alias for possible GuppiRaw data Arrays
 RawArray = Union{Array{Complex{Int8},3},Array{Complex{Int16},3}}

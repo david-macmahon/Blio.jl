@@ -4,6 +4,7 @@ Module for interacting with Filterbank files.
 See also:
 [`Filterbank.Header`](@ref),
 [`read!(io::IO, fbh::Filterbank.Header)`](@ref),
+[`write(io::IO, fbh::Filterbank.Header)`](@ref),
 [`Array(fbh::Filterbank.Header, nspec::Int=1; dropdims::Bool=false)`](@ref)
 [`maskdc!(a::Array{Number}, ncoarse::Integer)`](@ref)
 """
@@ -16,7 +17,14 @@ export read_double
 export read_string
 export read_symbol
 export read_angle
+export write_int
+export write_uint
+export write_double
+export write_string
+export write_symbol
+export write_angle
 export read_header_item
+export write_header_item
 export maskdc!
 
 using OrderedCollections
@@ -121,6 +129,47 @@ function read_angle(io)::Float64
 end
 
 """
+# Writes `i` to `io` with native endianess.
+"""
+write_int(io::IO, i::Int32) = write(io, i)
+
+"""
+# Writes `u` to `io` with native endianess.
+"""
+write_uint(io::IO, u::UInt32) = write(io, u)
+
+"""
+# Writes `f` to `io` with native endianess.
+"""
+write_double(io::IO, f::Float64) = write(io, f)
+
+"""
+# Writes `s` to `io` as a filterbank header string
+"""
+function write_string(io::IO, s::AbstractString)
+  write(io, UInt32(length(s))) + write(io, s)
+end
+
+"""
+# Writes `s` to `io` as a filterbank header string
+"""
+write_symbol(io::IO, s::Symbol) = write_string(io, String(s))
+
+"""
+Converts `f` to ddmmss.s (or hhmmss.s) format and then writes it to `io` with
+native endianess.  This is primarily used to write `src_raj` and `src_dej`
+header values.
+"""
+function write_angle(io::IO, v::Float64)
+  sign = (v < 0) ? -1 : +1
+  v = abs(v)
+  dd, frac = divrem(v, 1)
+  mm, ss = divrem(60*frac, 1)
+  ddmmss = sign * (10000*dd + 100*mm + 60*ss)
+  write_double(io, ddmmss)
+end
+
+"""
     read_header_item(f::Function, io::IO)
 
 Read a Filterbank header keyword and value from `io`. Call
@@ -193,6 +242,62 @@ function read_header_item(io::IO)
 end
 
 """
+    write_header_item(io::IO, kw::Symbol, val=nothing)
+
+Writes Filterbank header item `kw` and `val` to `io`.  A value must be passed
+for all keywords other than `:HEADER_START` and `:HEADER_END`.
+"""
+function write_header_item(io::IO, kw::Symbol, val=nothing)
+  # Special keywords
+  if     kw == :HEADER_START  ||
+         kw == :HEADER_END
+         write_symbol(io, kw)
+  # Integer-valued keywords
+  elseif kw == :telescope_id  ||
+         kw == :machine_id    ||
+         kw == :data_type     ||
+         kw == :barycentric   ||
+         kw == :pulsarcentric ||
+         kw == :nbits         ||
+         kw == :nsamples      ||
+         kw == :nchans        ||
+         kw == :nifs          ||
+         kw == :nbeams        ||
+         kw == :ibeam
+         write_symbol(io, kw) + write_int(io, Int32(val))
+  # String-values keywords
+  elseif kw == :rawdatafile   ||
+         kw == :source_name
+         write_symbol(io, kw) + write_string(io, String(val))
+  # Double-valued
+  elseif kw == :az_start      ||
+         kw == :za_start      ||
+         kw == :tstart        ||
+         kw == :tsamp         ||
+         kw == :fch1          ||
+         kw == :foff          ||
+         kw == :refdm         ||
+         kw == :period
+         write_symbol(io, kw) + write_double(io, Float64(val))
+  # Double-valued, angle split
+  elseif kw == :src_raj       ||
+         kw == :src_dej
+         write_symbol(io, kw) + write_angle(io, Float64(val))
+  # Ignored "convenience" keywords
+  elseif kw == :header_size   ||
+         kw == :data_size
+         # Ignored
+  # Unsupported keywords
+  elseif kw == :FREQUENCY_START ||
+         kw == :fchannel        ||
+         kw == :FREQUENCY_END
+    @warn "unsupported keyword" kw
+  else
+    @warn "unknown keyword" kw
+  end
+end
+
+"""
     read!(io::IO, fbh::Filterbank.Header)::Filterbank.Header
     read!(io::IO, Filterbank.Header)::Filterbank.Header
 
@@ -242,6 +347,27 @@ end
 
 # Passing type creates new instance
 Base.read!(io::IO, ::Type{Header}) = read!(io, Header())
+
+"""
+    write(io::IO, fbh::Filterbank.Header)
+
+Seeks to the beginning of io and writes a Filterbank header from the contents
+of `fbh`.
+"""
+function Base.write(io::IO, fbh::Filterbank.Header)
+  seekstart(io)
+
+  write_header_item(io, :HEADER_START)
+
+  for (kw, val) in fbh
+    write_header_item(io, kw, val)
+  end
+
+  write_header_item(io, :HEADER_END)
+
+  # File position is number of bytes written
+  position(io)
+end
 
 """
     Array(fbh::Filterbank.Header, nspec::Int=1)
