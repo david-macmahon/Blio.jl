@@ -32,7 +32,7 @@ using OrderedCollections
 """
 Type used to hold a Filterbank header.  Acts very much like an OrderedDict.
 """
-struct Header
+struct Header <: AbstractDict{Symbol, Any}
   # OrderedDict that holds the header key=value pairs
   dict::OrderedDict{Symbol, Any}
 
