@@ -398,18 +398,31 @@ function Base.write(io::IO, fbh::Filterbank.Header)
 end
 
 """
-    Array(fbh::Filterbank.Header, nspec::Int=1; dropdims::Bool=false)
+    Array(fbh::Filterbank.Header, nspec::Int=0; <kwargs>)
 
 Return an uninitialized Array sized for `nspec` spectra of Filterbank data as
 specified by metadata in `header`, specifically the `:nchans`, `nifs`, and
 `:nbits` fields.  The data type of the Array elements will be `Int8` when
 `fbh.nbits == 8` or `Float32` when `fbh.nbits == 32`.
 
+If `nspec` is zero, the Array will be sized to hold up to all spectra from the
+file or as many spectra as will fit in `maxmem` bytes, whichever is less.  The
+returned Array will hold at least one spectrum (assuming it gets successfuly
+allocated), even if that would exceed maxmem.  Files with exceptionally large
+numbers of channels may not be usable with this convention and the user will
+have to devise their own Array allocation scheme.
+
 The Array will be dimensioned as [chan, IF, spec] unless `dropdims` is true in
 which case any singleton dimensions will be eliminated.
+
+# Keyword Arguments
+- `dropdims::Bool=false`: drop singleton dimensions
+- `maxmem::Int64=1<<32`: limit `nspec` to not more than this many bytes
 """
-function Base.Array(fbh::Filterbank.Header, nspec::Integer=1;
-                    dropdims::Bool=false)::Union{Array{Int8},Array{Float32}}
+function Base.Array(fbh::Filterbank.Header, nspec::Integer=0;
+                    maxmem::Int64=1<<32,
+                    dropdims::Bool=false
+                   )::Union{Array{Int8},Array{Float32}}
   nchans = get(fbh, :nchans, 0)
   @assert nchans > 0 "invalid nchans ($nchans)"
 
@@ -417,8 +430,31 @@ function Base.Array(fbh::Filterbank.Header, nspec::Integer=1;
   @assert nbits == 8 || nbits == 32 "unsupported nbits ($nbits)"
 
   nifs = get(fbh, :nifs, 1)
-  max_spec = 8 * get(fbh, :data_size, 0) ÷ (nchans * nifs * nbits)
-  @assert nspec <= max_spec "nspec too big ($nspec > $max_spec)"
+  @assert nifs > 0 "unsupported nifs ($nifs)"
+
+  @assert maxmem >= 0 "maxmem must ne non-negative"
+
+  # Only nbits 8 or 32 are supported, so divide by 8 isn't a problem
+  sample_size = nchans * nifs * nbits ÷ 8
+  max_spec = get(fbh, :data_size, 0) ÷ sample_size
+
+  # Limit max_spec to maxmem
+  if max_spec * sample_size > maxmem
+    max_spec = maxmem ÷ sample_size
+  end
+
+  if max_spec == 0
+    # No data_size(!?) or 1 sample exceeds maxmem
+    max_spec = 1
+  end
+
+  # nspec <= 0 means max_spec
+  if nspec <= 0
+    nspec = max_spec
+  elseif nspec > max_spec
+    @warn "limiting nspec to $max_spec"
+    nspec = max_spec
+  end
 
   if nbits == 8
     eltype = Int8
