@@ -293,7 +293,9 @@ function write_header_item(io::IO, kw::Symbol, val=nothing)
          write_symbol(io, kw) + write_angle(io, Float64(val))
   # Ignored "convenience" keywords
   elseif kw == :header_size   ||
-         kw == :data_size
+         kw == :data_size     ||
+         kw == :sample_size   ||
+         kw == :nsamps
          # Ignored
   # Unsupported keywords
   elseif kw == :FREQUENCY_START ||
@@ -315,6 +317,16 @@ Read and parse Filterbank header from `io` and populate `fbh`.  Add
 If `io` was at the start of the file, it will be positioned at the start of
 data after this function returns.  If `io` was positioned elsewhere, that
 position will remain unchanged after this function returns.
+
+This function adds some additional unofficial "convenience" fields to the
+returned Header:
+- `:header_size`: number of bytes in header
+- `:data_size`: number of bytes of data
+- `:sample_size`: size of a single time sample (all channels, all IFs)
+- `:nsamps`: data size divided by sample size
+The calculated `:nsamps` field should match any `:nsamples` field in the
+header.  The `:nsamples` field is an optional header, but it is official so
+using that field for the derived "convenience" value is not desirable.
 """
 function Base.read!(io::IO, fbh::Filterbank.Header)::Filterbank.Header
   # If pos is not 0 then save current pos, rewind and (re-)read the
@@ -341,9 +353,17 @@ function Base.read!(io::IO, fbh::Filterbank.Header)::Filterbank.Header
     kw, val = read_header_item(io)
   end
 
+  # Calculate some convenience fields
   pos = position(io)
   fbh[:header_size] = pos
   fbh[:data_size] = filesize(io) - pos
+  # If all these sizing fields exist
+  if all(k->haskey(fbh, k), [:nchans, :nifs, :nbits])
+    # Calculate sample size and number of samples
+    # TODO Be smarter about non-multiple of 8 bits per spectrum?
+    fbh[:sample_size] = (fbh[:nchans]*fbh[:nifs]*fbh[:nbits] + 7) ÷ 8
+    fbh[:nsamps] = fbh[:data_size] ÷ fbh[:sample_size]
+  end
 
   # Restore original position if it was non-zero
   if save_pos != 0
