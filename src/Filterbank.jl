@@ -190,14 +190,19 @@ function read_header_item(f::Function, io::IO)
          kw == :data_type     ||
          kw == :barycentric   ||
          kw == :pulsarcentric ||
-         kw == :nbits         ||
-         kw == :nsamples      ||
-         kw == :nchans        ||
-         kw == :nifs          ||
          kw == :nbeams        ||
          kw == :ibeam
          val = read_int(io)
-  # String-values keywords
+  # Unsigned integer-valued keywords
+  # These 32-bit values are used for calculating sizes/dimensions so they must
+  # be positive.  To maximize the range, they are read as UInt32 and then
+  # converted to Int64.
+  elseif kw == :nbits         ||
+         kw == :nsamples      ||
+         kw == :nchans        ||
+         kw == :nifs
+         val = Int64(read_uint(io))
+  # String-valued keywords
   elseif kw == :rawdatafile   ||
          kw == :source_name
          val = read_string(io)
@@ -258,14 +263,17 @@ function write_header_item(io::IO, kw::Symbol, val=nothing)
          kw == :data_type     ||
          kw == :barycentric   ||
          kw == :pulsarcentric ||
-         kw == :nbits         ||
-         kw == :nsamples      ||
-         kw == :nchans        ||
-         kw == :nifs          ||
          kw == :nbeams        ||
          kw == :ibeam
          write_symbol(io, kw) + write_int(io, Int32(val))
-  # String-values keywords
+  # Unsigned integer-valued keywords
+  # See comments in read_header_item
+  elseif kw == :nbits         ||
+         kw == :nsamples      ||
+         kw == :nchans        ||
+         kw == :nifs
+         write_symbol(io, kw) + write_uint(io, UInt32(val))
+  # String-valued keywords
   elseif kw == :rawdatafile   ||
          kw == :source_name
          write_symbol(io, kw) + write_string(io, String(val))
