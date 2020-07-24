@@ -370,8 +370,7 @@ function Base.write(io::IO, fbh::Filterbank.Header)
 end
 
 """
-    Array(fbh::Filterbank.Header, nspec::Int=1)
-    Array(fbh, nspec=1; dropdims::Bool=true)
+    Array(fbh::Filterbank.Header, nspec::Int=1; dropdims::Bool=false)
 
 Return an uninitialized Array sized for `nspec` spectra of Filterbank data as
 specified by metadata in `header`, specifically the `:nchans`, `nifs`, and
@@ -379,7 +378,7 @@ specified by metadata in `header`, specifically the `:nchans`, `nifs`, and
 `fbh.nbits == 8` or `Float32` when `fbh.nbits == 32`.
 
 The Array will be dimensioned as [chan, IF, spec] unless `dropdims` is true in
-which case any singletone dimensions will be eliminated.
+which case any singleton dimensions will be eliminated.
 """
 function Base.Array(fbh::Filterbank.Header, nspec::Integer=1;
                     dropdims::Bool=false)::Union{Array{Int8},Array{Float32}}
