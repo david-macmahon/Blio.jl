@@ -88,17 +88,17 @@ end
 """
 Reads a native-endian Int32 from `io`
 """
-read_int(io::IO)::Int32 = read(io, Int32)
+read_int(io::IO)::Int32 = ltoh(read(io, Int32))
 
 """
 Reads a native-endian UInt32 from `io`
 """
-read_uint(io::IO)::UInt32 = read(io, UInt32)
+read_uint(io::IO)::UInt32 = ltoh(read(io, UInt32))
 
 """
 Reads a native-endian Float64 (aka double) from `io`
 """
-read_double(io::IO)::Float64 = read(io, Float64)
+read_double(io::IO)::Float64 = ltoh(read(io, Float64))
 
 """
 Reads a filterbank header string
@@ -131,23 +131,23 @@ end
 """
 # Writes `i` to `io` with native endianess.
 """
-write_int(io::IO, i::Int32) = write(io, i)
+write_int(io::IO, i::Int32) = write(io, htol(i))
 
 """
 # Writes `u` to `io` with native endianess.
 """
-write_uint(io::IO, u::UInt32) = write(io, u)
+write_uint(io::IO, u::UInt32) = write(io, htol(u))
 
 """
 # Writes `f` to `io` with native endianess.
 """
-write_double(io::IO, f::Float64) = write(io, f)
+write_double(io::IO, f::Float64) = write(io, htol(f))
 
 """
 # Writes `s` to `io` as a filterbank header string
 """
 function write_string(io::IO, s::AbstractString)
-  write(io, UInt32(length(s))) + write(io, s)
+  write_uint(io, length(s)) + write(io, s)
 end
 
 """
