@@ -397,6 +397,9 @@ function Base.write(io::IO, fbh::Filterbank.Header)
   position(io)
 end
 
+# This is a type alias for possible GuppiRaw data Arrays
+FilterbankArray = Union{Array{Int8},Array{Float32}}
+
 """
     Array(fbh::Filterbank.Header, nspec::Int=0; <kwargs>)
 
@@ -422,7 +425,7 @@ which case any singleton dimensions will be eliminated.
 function Base.Array(fbh::Filterbank.Header, nspec::Integer=0;
                     maxmem::Int64=1<<32,
                     dropdims::Bool=false
-                   )::Union{Array{Int8},Array{Float32}}
+                   )::FilterbankArray
   nchans = get(fbh, :nchans, 0)
   @assert nchans > 0 "invalid nchans ($nchans)"
 
@@ -477,7 +480,7 @@ Mask the center (aka "DC") fine channel of all the coarse channels that span
 the first dimentsion of `a`.  `ncoarse` must be the total number of coarse
 channels in `a`.
 """
-function maskdc!(a::Array{Number}, ncoarse::Integer)::Nothing
+function maskdc!(a::FilterbankArray, ncoarse::Integer)::Nothing
   @assert size(a,1) % ncoarse == 0 "invalid ncoarse ($ncoarse)"
   nfpc = size(a,1) ÷ ncoarse
   b = reshape(a, nfpc, :)
