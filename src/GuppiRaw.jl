@@ -4,6 +4,7 @@ Module for interacting with GuppiRaw files.
 See also:
 [`GuppiRaw.Header`](@ref),
 [`read!(io::IO, grh::GuppiRaw.Header)`](@ref),
+[`read(io::IO, ::Type{GuppiRaw.Header})`](@ref),
 [`write(io::IO, grh::GuppiRaw.Header)`](@ref),
 [`Array(grh::GuppiRaw.Header, nchan::Int=0)`](@ref)
 """
@@ -156,8 +157,15 @@ function Base.read!(io::IO, grh::GuppiRaw.Header;
   grh
 end
 
-# Passing type creates new instance
-Base.read!(io::IO, ::Type{Header}) = read!(io, Header())
+"""
+    read(io::IO, ::Type{GuppiRaw.Header};
+         skip_padding::Bool=true)::GuppiRaw.Header
+
+Create a `GuppiRaw::Header` object, then call `read!()` to populate it.
+"""
+function Base.read(io::IO, ::Type{Header}; skip_padding::Bool=true)
+  read!(io, Header(), skip_padding=skip_padding)
+end
 
 # write_header_item is an internal function whose methods are used to write
 # different types of values as a GUPPI raw record.

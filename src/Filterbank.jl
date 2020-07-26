@@ -4,6 +4,7 @@ Module for interacting with Filterbank files.
 See also:
 [`Filterbank.Header`](@ref),
 [`read!(io::IO, fbh::Filterbank.Header)`](@ref),
+[`read(io::IO, ::Type{Filterbank.Header})`](@ref),
 [`write(io::IO, fbh::Filterbank.Header)`](@ref),
 [`Array(fbh::Filterbank.Header, nspec::Int=1; dropdims::Bool=false)`](@ref)
 [`maskdc!(a::Array{Number}, ncoarse::Integer)`](@ref)
@@ -309,7 +310,6 @@ end
 
 """
     read!(io::IO, fbh::Filterbank.Header)::Filterbank.Header
-    read!(io::IO, Filterbank.Header)::Filterbank.Header
 
 Read and parse Filterbank header from `io` and populate `fbh`.  Add
 `header_size` and `data_size` fields based on header size and file length.
@@ -373,8 +373,12 @@ function Base.read!(io::IO, fbh::Filterbank.Header)::Filterbank.Header
   fbh
 end
 
-# Passing type creates new instance
-Base.read!(io::IO, ::Type{Header}) = read!(io, Header())
+"""
+    read(io::IO, Filterbank.Header)::Filterbank.Header
+
+Create a `Filterbank::Header` object, then call `read!()` to populate it.
+"""
+Base.read(io::IO, ::Type{Header}) = read!(io, Header())
 
 """
     write(io::IO, fbh::Filterbank.Header)
