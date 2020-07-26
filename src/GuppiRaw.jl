@@ -142,8 +142,8 @@ function Base.read!(io::IO, grh::GuppiRaw.Header)::GuppiRaw.Header
   # Seek io to just after END rec
   skip(io, HEADER_REC_SIZE*endidx - sizeof(buf))
 
-  # If DIRECTIO exists and is non-zero, seek past padding
-  if get(grh, :DIRECTIO, 0) != 0
+  # If directio exists and is non-zero, seek past padding
+  if get(grh, :directio, 0) != 0
     skip(io, mod(-position(io), 512))
   end
 
