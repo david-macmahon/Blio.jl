@@ -92,15 +92,21 @@ function Base.empty!(h::Header)
 end
 
 """
-    read!(io::IO, grh::GuppiRaw.Header)::GuppiRaw.Header
+    read!(io::IO, grh::GuppiRaw.Header; skip_padding::Bool=true)::GuppiRaw.Header
 
 Read a GUPPI header from `io` and populate `grh`.
 
 If not enough bytes remain in the file, empty `grh` to indicate EOF.  Otherwise
 parse header, seek `io` to the start of the data block following the header.
 Always return `grh` (or throw error if GUPPI header is not found).
+
+If `skip_padding` is true and `grh[:directio]` is non-zero, padding bytes will
+be skipped after to header such that the file position will be a multiple of
+512 bytes.
 """
-function Base.read!(io::IO, grh::GuppiRaw.Header)::GuppiRaw.Header
+function Base.read!(io::IO, grh::GuppiRaw.Header;
+                    skip_padding::Bool=true
+                   )::GuppiRaw.Header
   # Get buf from Header
   buf = getfield(grh, :buf)
   @assert size(buf, 1) == HEADER_REC_SIZE
@@ -143,7 +149,7 @@ function Base.read!(io::IO, grh::GuppiRaw.Header)::GuppiRaw.Header
   skip(io, HEADER_REC_SIZE*endidx - sizeof(buf))
 
   # If directio exists and is non-zero, seek past padding
-  if get(grh, :directio, 0) != 0
+  if skip_padding && get(grh, :directio, 0) != 0
     skip(io, mod(-position(io), 512))
   end
 
@@ -190,11 +196,15 @@ function write_header_item(io::IO, kw::Symbol, val::AbstractString)
 end
 
 """
-    write(io::IO, grh::GuppiRaw.Header)
+    write(io::IO, grh::GuppiRaw.Header; skip_padding::Bool=true)
 
-Write `grh` as a GUPPI header to `io`.
+Write `grh` as a GUPPI header to `io`.  If `skip_padding` is true and
+`grh[:directio]` is non-zero, padding bytes will be written after to header
+such that the file position will be a multiple of 512 bytes.
 """
-function Base.write(io::IO, grh::GuppiRaw.Header)
+function Base.write(io::IO, grh::GuppiRaw.Header;
+                    skip_padding::Bool=true
+                   )
   bytes_written = 0
 
   for (k,v) in grh
@@ -204,7 +214,7 @@ function Base.write(io::IO, grh::GuppiRaw.Header)
   bytes_written += write(io, rpad("END", 80));
 
   # Handle DIRECTIO padding
-  if get(grh, :directio, 0) != 0
+  if skip_padding && get(grh, :directio, 0) != 0
     padding = mod(-bytes_written, 512)
     if padding != 0
       bytes_written += write(io, zeros(UInt8, padding))
