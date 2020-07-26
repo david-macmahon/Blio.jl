@@ -102,7 +102,7 @@ parse header, seek `io` to the start of the data block following the header.
 Always return `grh` (or throw error if GUPPI header is not found).
 
 If `skip_padding` is true and `grh[:directio]` is non-zero, padding bytes will
-be skipped after to header such that the file position will be a multiple of
+be skipped after the header such that the file position will be a multiple of
 512 bytes.
 """
 function Base.read!(io::IO, grh::GuppiRaw.Header;
@@ -207,7 +207,7 @@ end
     write(io::IO, grh::GuppiRaw.Header; skip_padding::Bool=true)
 
 Write `grh` as a GUPPI header to `io`.  If `skip_padding` is true and
-`grh[:directio]` is non-zero, padding bytes will be written after to header
+`grh[:directio]` is non-zero, padding bytes will be written after the header
 such that the file position will be a multiple of 512 bytes.
 """
 function Base.write(io::IO, grh::GuppiRaw.Header;
