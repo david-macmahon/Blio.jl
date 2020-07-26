@@ -7,6 +7,8 @@ See also:
 [`read(io::IO, ::Type{Filterbank.Header})`](@ref),
 [`write(io::IO, fbh::Filterbank.Header)`](@ref),
 [`Array(fbh::Filterbank.Header, nspec::Int=1; dropdims::Bool=false)`](@ref)
+[`chanfreq(fbh::Filterbank.Header, chan::Real)`](@ref)
+[`chanfreqs(fbh::Filterbank.Header, chans::AbstractRange)`](@ref)
 [`maskdc!(a::Array{Number}, ncoarse::Integer)`](@ref)
 """
 module Filterbank
@@ -494,3 +496,43 @@ function maskdc!(a::FilterbankArray, ncoarse::Integer)::Nothing
 end
 
 end # module Filterbank
+
+export chanfreq
+export chanfreqs
+
+"""
+    chanfreq(fbh::Filterbank.Header, chan::Real)::Float64
+
+Returns the center frequency of the channel given by `chan` based on the `fch1`
+and `foff` fields of `fbh`.  The first channel in the file is considered to be
+channel 1 (i.e. `chan` is one-based).
+"""
+function chanfreq(fbh::Filterbank.Header, chan::Real)::Float64
+  @assert haskey(fbh, :fch1) "header has no fch1 field"
+  @assert haskey(fbh, :foff) "header has no foff field"
+  fbh.fch1 + fbh.foff * (chan-1)
+end
+
+"""
+    chanfreqs(fbh::Filterbank.Header,
+              chans::AbstractRange=1:fbh.nchans)::AbstractRange
+
+Returns the center frequencies of the channels given by `chans` based on the
+`fch1`, `foff`, and (in the default case) `nchans` fields of `fbh`.  The first
+channel in the file is considered to be channel 1 (i.e.  `chans` are
+one-based).
+"""
+function chanfreqs(fbh::Filterbank.Header)::AbstractRange
+  @assert haskey(fbh, :fch1) "header has no fch1 field"
+  @assert haskey(fbh, :foff) "header has no foff field"
+  @assert haskey(fbh, :nchans) "header has no nchans field"
+  range(fbh.fch1, step=fbh.foff, length=fbh.nchans)
+end
+
+function chanfreqs(fbh::Filterbank.Header,
+                        chans::AbstractRange)::AbstractRange
+  range(chanfreq(fbh, first(chans)),
+        step=fbh.foff*step(chans),
+        length=length(chans)
+       )
+end

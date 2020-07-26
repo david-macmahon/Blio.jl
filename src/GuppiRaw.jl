@@ -7,6 +7,8 @@ See also:
 [`read(io::IO, ::Type{GuppiRaw.Header})`](@ref),
 [`write(io::IO, grh::GuppiRaw.Header)`](@ref),
 [`Array(grh::GuppiRaw.Header, nchan::Int=0)`](@ref)
+[`chanfreq(grh::GuppiRaw.Header, chan::Real)`](@ref)
+[`chanfreqs(grh::GuppiRaw.Header, chans::AbstractRange)`](@ref)
 """
 module GuppiRaw
 
@@ -265,3 +267,43 @@ function Base.Array(grh::Header, nchan::Int=0)::RawArray
 end
 
 end # module GuppiRaw
+
+export chanfreq
+export chanfreqs
+
+"""
+    chanfreq(grh::GuppiRaw.Header, chan::Real)::Float64
+
+Returns the center frequency of the channel given by `chan` based on the
+`obsfreq`, `chan_bw`, and `obsnchan` fields of `grh`.  The first channel in the
+file is considered to be channel 1 (i.e. `chan` is one-based).
+"""
+function chanfreq(grh::GuppiRaw.Header, chan::Real)::Float64
+  @assert haskey(grh, :obsfreq) "header has no obsfreq field"
+  @assert haskey(grh, :obsnchan) "header has no obsnchan field"
+  @assert haskey(grh, :chan_bw) "header has no chan_bw field"
+  grh.obsfreq - grh.obsnchan*grh.chan_bw/2 + grh.chan_bw*((chan-1) + 0.5)
+end
+
+"""
+    chanfreqs(grh::GuppiRaw.Header,
+              chans::AbstractRange=1:grh.obsnchan)::AbstractRange
+
+Returns the center frequencies of the channels given by `chans` based on the
+`obsfreq`, `chan_bw`, and `obsnchan` fields of `grh`.  The first channel in the
+file is considered to be channel 1 (i.e. `chans` are one-based).
+"""
+function chanfreqs(grh::GuppiRaw.Header)::AbstractRange
+  @assert haskey(grh, :obsfreq) "header has no obsfreq field"
+  @assert haskey(grh, :obsnchan) "header has no obsnchan field"
+  @assert haskey(grh, :chan_bw) "header has no chan_bw field"
+  range(chanfreq(grh, 1), step=grh.chan_bw, length=grh.obschan)
+end
+
+function chanfreqs(grh::GuppiRaw.Header,
+                        chans::AbstractRange)::AbstractRange
+  range(chanfreq(grh, first(chans)),
+        step=grh.chan_bw*step(chans),
+        length=length(chans)
+       )
+end
