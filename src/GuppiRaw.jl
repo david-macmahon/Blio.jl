@@ -95,31 +95,29 @@ function Base.empty!(h::Header)
 end
 
 """
-    read!(io::IO, grh::GuppiRaw.Header; skip_padding::Bool=true)::GuppiRaw.Header
+    read!(io::IO, grh::GuppiRaw.Header; skip_padding::Bool=true)::Bool
 
 Read a GUPPI header from `io` and populate `grh`.
 
-If not enough bytes remain in the file, empty `grh` to indicate EOF.  Otherwise
-parse header, seek `io` to the start of the data block following the header.
-Always return `grh` (or throw error if GUPPI header is not found).
+Returns `false` if not enough data remain in `io` for a header, otherwise
+`true` is returned.  This can be used to loop through a GuppiRaw file.
 
 If `skip_padding` is true and `grh[:directio]` is non-zero, padding bytes will
 be skipped after the header such that the file position will be a multiple of
-512 bytes.
+512 bytes.  This will leave the file positioned at the start of the data block
+following the header.  If reading a file of concatenated headers (i.e. without
+a data block after each header), use `skip_padding=false`.
 """
 function Base.read!(io::IO, grh::GuppiRaw.Header;
                     skip_padding::Bool=true
-                   )::GuppiRaw.Header
+                   )::Bool
   # Get buf from Header
   buf = getfield(grh, :buf)
   @assert size(buf, 1) == HEADER_REC_SIZE
 
-  # Make grh empty
-  empty!(grh)
-
-  # If not enough bytes remaining (EOF), bail out
+  # If not enough bytes remaining (EOF), return false
   if filesize(io) - position(io) < sizeof(buf)
-    return grh
+    return false
   end
 
   # Read bytes into buf
@@ -131,6 +129,9 @@ function Base.read!(io::IO, grh::GuppiRaw.Header;
   if isnothing(endidx)
     error("GUPPI RAW header not found in $(length(buf)) bytes")
   end
+
+  # Make grh empty
+  empty!(grh)
 
   # Parse first endidx-1 records
   for i in 1:endidx-1
@@ -156,17 +157,20 @@ function Base.read!(io::IO, grh::GuppiRaw.Header;
     skip(io, mod(-position(io), 512))
   end
 
-  grh
+  return true
 end
 
 """
     read(io::IO, ::Type{GuppiRaw.Header};
          skip_padding::Bool=true)::GuppiRaw.Header
 
-Create a `GuppiRaw::Header` object, then call `read!()` to populate it.
+Create a `GuppiRaw::Header` object, call `read!()` to populate it, then return
+it.
 """
-function Base.read(io::IO, ::Type{Header}; skip_padding::Bool=true)
-  read!(io, Header(), skip_padding=skip_padding)
+function Base.read(io::IO, ::Type{Header}; skip_padding::Bool=true)::Header
+  grh = Header()
+  read!(io, grh, skip_padding=skip_padding)
+  return grh
 end
 
 # write_header_item is an internal function whose methods are used to write
