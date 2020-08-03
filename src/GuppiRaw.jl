@@ -95,6 +95,23 @@ function Base.empty!(h::Header)
 end
 
 """
+Returns the number of channels per antenna (i.e. `obsnchan ÷ nants`).
+Missing `nants` implies `nants == 1`.
+"""
+function antnchan(grh::GuppiRaw.Header)::Int
+  @assert haskey(grh, :obsnchan) "header has no obsnchan field"
+  obsnants = get(grh, :nants, 1)
+  @assert typeof(obsnants) <: Int
+
+  obsnchan = grh.obsnchan
+  @assert typeof(obsnchan) <: Int
+  @assert obsnchan % obsnants == 0 "nants must divide obsnchan"
+
+  # Return number of channels per antenna
+  obsnchan ÷ obsnants
+end
+
+"""
     read!(io::IO, grh::GuppiRaw.Header; skip_padding::Bool=true)::Bool
 
 Read a GUPPI header from `io` and populate `grh`.
@@ -239,35 +256,73 @@ function Base.write(io::IO, grh::GuppiRaw.Header;
 end
 
 # This is a type alias for possible GuppiRaw data Arrays
-RawArray = Union{Array{Complex{Int8},3},Array{Complex{Int16},3}}
+RawArray = Union{Array{Complex{Int8}},Array{Complex{Int16}}}
 
 """
-    Array(grh::GuppiRaw.Header, nchan::Int=0)::Array{Complex{Integer},3}
+    Array(grh::GuppiRaw.Header, nchan::Int=0)::Array{Complex{Integer}}
 
-Return an uninitialized 3 dimensional Array sized for `nchan` channels of RAW
-data as specified by metadata in `header`, specifically the `BLOCSIZE`,
-`OBSNCHAN`, `NPOL`, and `NBITS` fields.  `nchan <= 0` implies `OBSNCHAN`.  The
-data type of the Array elements will be `Complex{Int8}` when `NBITS == 8` or
-`Complex{Int16}` when `NBITS == 16`.
+Return an uninitialized 3 or 4 dimensional Array sized for `nchan` channels of
+RAW data as specified by metadata in `header`, specifically the `BLOCSIZE`,
+`NANTS`, `OBSNCHAN`, `NPOL`, and `NBITS` fields.  `nchan <= 0` implies all
+channels.
 
-The Array will be dimensioned as [pol, time, chan] to match the RAW data block
-layout.
+The data type of the Array elements will be `Complex{Int8}` when `NBITS == 8`
+or `Complex{Int16}` when `NBITS == 16`.
+
+If `NANTS` is 1 or unspecified, the Array will be dimensioned as [npol, ntime,
+nchan] to match the RAW data block layout.
+
+If `NANTS` is greater than 1 and `nchan` is a multiple of `OBSNCHAN/NANTS`,
+then the returned array will be dimensioned as [npol, ntime, obsnchan/nants,
+nchan*nants/obschan] (i.e. it will have an extra antenna dimension).
 """
 function Base.Array(grh::Header, nchan::Int=0)::RawArray
+  @assert haskey(grh, :blocsize) "header has no blocsize field"
+  @assert haskey(grh, :obsnchan) "header has no obsnchan field"
+
   blocsize = grh.blocsize
+
+  obsnants = get(grh, :nants, 1)
   obsnchan = grh.obsnchan
+  # antnchan is number of channels per antenna
+  antnchan = GuppiRaw.antnchan(grh)
+
   if nchan <= 0
-    nchan = obsnchan
+    # Size for all channels, all antennas
+    nchan = antnchan
+    nants = obsnants
+  elseif nchan > obsnchan
+    # Size for all channels, all antennas, but warn
+    @warn "limiting excessive nchan to obsnchan"
+    nchan = antnchan
+    nants = obsnants
+  elseif obsnants > 1 && nchan % antnchan == 0
+    # Size for nchan ÷ antnchan antennas, antnchan channels
+    nants = nchan ÷ antnchan
+    nchan = antnchan
+  else
+    # Treat as if obsnants were 1
+    nants = 1
   end
+
   npol = get(grh, :npol, 1) < 2 ? 1 : 2
+  @assert typeof(npol) <: Int
+
   nbits = get(grh, :nbits, 8)
   @assert nbits == 8 || nbits == 16 "unsupported nbits ($nbits)"
   eltype = nbits == 8 ? Int8 : Int16
+
   ntime, rem = divrem(8 * blocsize, 2 * obsnchan * npol * nbits)
   @assert rem == 0
-  @assert typeof(npol) <: Int
   @assert typeof(ntime) <: Int
-  Array{Complex{eltype}}(undef, npol, ntime, nchan)
+
+  if nants > 1
+    dims = (npol, ntime, nchan, nants)
+  else
+    dims = (npol, ntime, nchan)
+  end
+
+  Array{Complex{eltype}}(undef, dims)
 end
 
 end # module GuppiRaw
@@ -279,29 +334,38 @@ export chanfreqs
     chanfreq(grh::GuppiRaw.Header, chan::Real)::Float64
 
 Returns the center frequency of the channel given by `chan` based on the
-`obsfreq`, `chan_bw`, and `obsnchan` fields of `grh`.  The first channel in the
-file is considered to be channel 1 (i.e. `chan` is one-based).
+`obsfreq`, `chan_bw`, `obsnchan`, and `nants` fields of `grh`.  The first
+channel in the file is considered to be channel 1 (i.e. `chan` is one-based).
 """
 function chanfreq(grh::GuppiRaw.Header, chan::Real)::Float64
   @assert haskey(grh, :obsfreq) "header has no obsfreq field"
   @assert haskey(grh, :obsnchan) "header has no obsnchan field"
   @assert haskey(grh, :chan_bw) "header has no chan_bw field"
-  grh.obsfreq - grh.obsnchan*grh.chan_bw/2 + grh.chan_bw*((chan-1) + 0.5)
+
+  # antnchan is number of channels per antenna
+  antnchan = GuppiRaw.antnchan(grh)
+
+  # Subtract 1 and modulo antnchan
+  chan = (chan-1) % antnchan
+
+  grh.obsfreq - grh.obsnchan*grh.chan_bw/2 + grh.chan_bw*(chan + 0.5)
 end
 
 """
     chanfreqs(grh::GuppiRaw.Header,
-              chans::AbstractRange=1:grh.obsnchan)::AbstractRange
+              chans::AbstractRange=1:grh.obsnchan/grh.nants)::AbstractRange
 
 Returns the center frequencies of the channels given by `chans` based on the
-`obsfreq`, `chan_bw`, and `obsnchan` fields of `grh`.  The first channel in the
-file is considered to be channel 1 (i.e. `chans` are one-based).
+`obsfreq`, `chan_bw`, `obsnchan`, and `nants` fields of `grh`.  The first
+channel in the file is considered to be channel 1 (i.e. `chans` are
+one-based).  Frequencies for channels beyond `obsnchan/nants` will be
+returned if requested, but they are not valid.
 """
 function chanfreqs(grh::GuppiRaw.Header)::AbstractRange
-  @assert haskey(grh, :obsfreq) "header has no obsfreq field"
-  @assert haskey(grh, :obsnchan) "header has no obsnchan field"
-  @assert haskey(grh, :chan_bw) "header has no chan_bw field"
-  range(chanfreq(grh, 1), step=grh.chan_bw, length=grh.obschan)
+  # antnchan is number of channels per antenna
+  antnchan = GuppiRaw.antnchan(grh)
+
+  range(chanfreq(grh, 1), step=grh.chan_bw, length=antnchan)
 end
 
 function chanfreqs(grh::GuppiRaw.Header,
