@@ -410,7 +410,7 @@ FilterbankArray = Union{Array{Int8},Array{Float32}}
     Array(fbh::Filterbank.Header, nspec::Int=0; <kwargs>)
 
 Return an uninitialized Array sized for `nspec` spectra of Filterbank data as
-specified by metadata in `header`, specifically the `:nchans`, `nifs`, and
+specified by metadata in `header`, specifically the `:nchans`, `:nifs`, and
 `:nbits` fields.  The data type of the Array elements will be `Int8` when
 `fbh.nbits == 8` or `Float32` when `fbh.nbits == 32`.
 
@@ -421,12 +421,17 @@ allocated), even if that would exceed maxmem.  Files with exceptionally large
 numbers of channels may not be usable with this convention and the user will
 have to devise their own Array allocation scheme.
 
-The Array will be dimensioned as [chan, IF, spec] unless `dropdims` is true in
-which case any singleton dimensions will be eliminated.
+The Array will be dimensioned as (nchans, nifs, nspec) unless `dropdims` is
+true in which case any singleton dimensions will be eliminated or `nants > 1`
+(see below).
 
 # Keyword Arguments
 - `dropdims::Bool=false`: drop singleton dimensions
 - `maxmem::Int64=1<<32`: limit `nspec` to not more than this many bytes
+- `nants`::Int=1: If `nants > 1`, split the `chan` dimension into
+   `nchan÷nants` and `nants` dimensions.  It is an error if `nchans` is not a
+   multiple of `nants`.  The Array will be dimensioned as (nchans÷nants, nants,
+   nifs, nspec).
 """
 function Base.Array(fbh::Filterbank.Header, nspec::Integer=0;
                     maxmem::Int64=1<<32,
@@ -434,6 +439,8 @@ function Base.Array(fbh::Filterbank.Header, nspec::Integer=0;
                    )::FilterbankArray
   nchans = get(fbh, :nchans, 0)
   @assert nchans > 0 "invalid nchans ($nchans)"
+  @assert nants > 0 "invalid nants ($nants)"
+  @assert nchans % nants == 0 "nchans ($nchans) must be a multiple of nants ($nants)"
 
   nbits = get(fbh, :nbits, 32)
   @assert nbits == 8 || nbits == 32 "unsupported nbits ($nbits)"
@@ -474,6 +481,11 @@ function Base.Array(fbh::Filterbank.Header, nspec::Integer=0;
   dims = [nchans, nifs, nspec]
   if dropdims
     filter!(x->x!=1, dims)
+  end
+
+  if nants > 1
+    prepend!(dims, dims[1] ÷ nants)
+    dims[2] = nants
   end
 
   Array{eltype}(undef, dims...)
