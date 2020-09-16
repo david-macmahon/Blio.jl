@@ -434,8 +434,9 @@ true in which case any singleton dimensions will be eliminated or `nants > 1`
    nifs, nspec).
 """
 function Base.Array(fbh::Filterbank.Header, nspec::Integer=0;
+                    dropdims::Bool=false,
                     maxmem::Int64=1<<32,
-                    dropdims::Bool=false
+                    nants::Integer=1
                    )::FilterbankArray
   nchans = get(fbh, :nchans, 0)
   @assert nchans > 0 "invalid nchans ($nchans)"
