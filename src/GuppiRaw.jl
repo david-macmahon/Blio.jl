@@ -9,6 +9,7 @@ See also:
 [`Array(grh::GuppiRaw.Header, nchan::Int=0)`](@ref)
 [`chanfreq(grh::GuppiRaw.Header, chan::Real)`](@ref)
 [`chanfreqs(grh::GuppiRaw.Header, chans::AbstractRange)`](@ref)
+[`ntime(GuppiRaw.Header)`](@ref)
 """
 module GuppiRaw
 
@@ -306,7 +307,6 @@ function Base.Array(grh::Header, nchan::Int=0)::RawArray
   end
 
   npol = get(grh, :npol, 1) < 2 ? 1 : 2
-  @assert typeof(npol) <: Int
 
   nbits = get(grh, :nbits, 8)
   @assert nbits == 8 || nbits == 16 "unsupported nbits ($nbits)"
@@ -329,6 +329,7 @@ end # module GuppiRaw
 
 export chanfreq
 export chanfreqs
+export ntime
 
 """
     chanfreq(grh::GuppiRaw.Header, chan::Real)::Float64
@@ -374,4 +375,23 @@ function chanfreqs(grh::GuppiRaw.Header,
         step=grh.chan_bw*step(chans),
         length=length(chans)
        )
+end
+
+"""
+    ntime(grh::GuppiRaw.Header)::Integer
+
+Return the number of time samples per block
+"""
+function ntime(grh::GuppiRaw.Header)::Integer
+  @assert haskey(grh, :blocsize) "header has no blocsize field"
+  @assert haskey(grh, :obsnchan) "header has no obsnchan field"
+
+  npol = get(grh, :npol, 1) < 2 ? 1 : 2
+  nbits = get(grh, :nbits, 8)
+  @assert nbits == 8 || nbits == 16 "unsupported nbits ($nbits)"
+
+  nt, rem = divrem(8 * grh.blocsize, 2 * grh.obsnchan * npol * nbits)
+  @assert rem == 0
+
+  return nt
 end
