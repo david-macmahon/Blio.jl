@@ -25,7 +25,7 @@ const HEADER_REC_SIZE = 80
 const HEADER_MAX_RECS = 256
 
 # Number of columns for numeric header values
-const HEADER_NUMERIC_COLS = 20
+const HEADER_NUMERIC_COLS = 23
 
 # Used to detect END record
 const END = map(Int, collect("END "))
@@ -201,7 +201,7 @@ end
 # Not sure the best/approriate formatting to use here,
 # but this seems like a reasonable approach to start with.
 function write_header_item(io::IO, kw::Symbol, val::AbstractFloat)
-  valstr = @sprintf("%.16G", val)
+  valstr = @sprintf("%.17G", val)
   # If no decimal point was output, redo to force one
   if isnothing(findfirst('.', valstr))
     if isnothing(findfirst('E', valstr))
