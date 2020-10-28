@@ -150,7 +150,7 @@ write_double(io::IO, f::Float64) = write(io, htol(f))
 # Writes `s` to `io` as a filterbank header string
 """
 function write_string(io::IO, s::AbstractString)
-  write_uint(io, length(s)) + write(io, s)
+  write_uint(io, UInt32(length(s))) + write(io, s)
 end
 
 """
