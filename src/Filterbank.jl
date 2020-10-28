@@ -331,7 +331,7 @@ header.  The `:nsamples` field is an optional header, but it is official so
 using that field for the derived "convenience" value is not desirable.
 """
 function Base.read!(io::IO, fbh::Filterbank.Header)::Filterbank.Header
-  # If pos is not 0 then save current pos, rewind and (re-)read the
+  # If position is not 0 then save current position, rewind and (re-)read the
   # (possibly changed?) header.
   save_pos = position(io)
   if save_pos != 0
@@ -356,9 +356,9 @@ function Base.read!(io::IO, fbh::Filterbank.Header)::Filterbank.Header
   end
 
   # Calculate some convenience fields
-  pos = position(io)
-  fbh[:header_size] = pos
-  fbh[:data_size] = filesize(io) - pos
+  fbh[:header_size] = mark(io)
+  seekend(io)
+  fbh[:data_size] = position(io) - reset(io)
   # If all these sizing fields exist
   if all(k->haskey(fbh, k), [:nchans, :nifs, :nbits])
     # Calculate sample size and number of samples
@@ -369,7 +369,7 @@ function Base.read!(io::IO, fbh::Filterbank.Header)::Filterbank.Header
 
   # Restore original position if it was non-zero
   if save_pos != 0
-    seek(io, pos)
+    seek(io, save_pos)
   end
 
   fbh
