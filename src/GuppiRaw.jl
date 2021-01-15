@@ -154,7 +154,9 @@ function Base.read!(io::IO, grh::GuppiRaw.Header;
   # Parse first endidx-1 records
   for i in 1:endidx-1
     rec = String(buf[:,i])
-    k, v = split(rec, '=', limit=2)
+    k, v = split(rec, '=', limit=2)..., missing
+    # Skip malformed records
+    ismissing(v) && continue
     k = Symbol(lowercase(strip(k)))
     v = strip(v)
     if v[1] == '\''
