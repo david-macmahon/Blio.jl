@@ -1,4 +1,4 @@
-This file is a version history of jl-blio amendments, beginning with 2021-01-15.  Entries appear in date descending order (newest first, oldest last).
+This file is a history of jl-blio amendments, beginning with 2021-01-06.  Entries appear in date descending order (newest first, oldest last).
 <br>
 <br>
 | Date | Contents |
