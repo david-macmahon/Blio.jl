@@ -10,4 +10,5 @@ This file is a history of jl-blio amendments, beginning with 2021-01-06.  Entrie
 | | To do:
 | | * NIFS.
 | | * Support output in HDF5 format. |
+| | * Integrate with version ID from Project.toml |
 | 2021-02-06 | Began Filterbank utility version "0.20210206".
