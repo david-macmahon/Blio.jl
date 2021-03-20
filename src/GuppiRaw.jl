@@ -200,7 +200,7 @@ function write_header_item(io::IO, kw::Symbol, val::Integer)
   write(io, rpad(s, 80)[1:80])
 end
 
-# Not sure the best/approriate formatting to use here,
+# Not sure the best/appropriate formatting to use here,
 # but this seems like a reasonable approach to start with.
 function write_header_item(io::IO, kw::Symbol, val::AbstractFloat)
   valstr = @sprintf("%.17G", val)

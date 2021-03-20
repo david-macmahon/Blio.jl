@@ -1,3 +1,7 @@
+export maskdc!
+export chanfreq
+export chanfreqs
+
 """
 Module for interacting with Filterbank files.
 
@@ -14,26 +18,12 @@ See also:
 module Filterbank
 
 export Header
-export read_int
-export read_uint
-export read_double
-export read_string
-export read_symbol
-export read_angle
-export write_int
-export write_uint
-export write_double
-export write_string
-export write_symbol
-export write_angle
-export read_header_item
-export write_header_item
-export maskdc!
 
 using OrderedCollections
 
 """
-Type used to hold a Filterbank header.  Acts very much like an OrderedDict.
+Type used to hold a Filterbank header.  Acts very much like an OrderedDict with
+the added ability to access header items as fields.
 """
 struct Header <: AbstractDict{Symbol, Any}
   # OrderedDict that holds the header key=value pairs
@@ -44,47 +34,49 @@ struct Header <: AbstractDict{Symbol, Any}
   end
 end
 
-function Base.setindex!(h::Header, val::Any, key::Symbol)
+end # module Filterbank
+
+function Base.setindex!(h::Filterbank.Header, val::Any, key::Symbol)
   setindex!(getfield(h, :dict), val, key)
 end
 
-function Base.setindex!(h::Header, val::Any, key::AbstractString)
+function Base.setindex!(h::Filterbank.Header, val::Any, key::AbstractString)
   setindex!(h, val, Symbol(lowercase(key)))
 end
 
-function Base.getindex(h::Header, key::Symbol)
+function Base.getindex(h::Filterbank.Header, key::Symbol)
   getindex(getfield(h, :dict), key)
 end
 
-function Base.getindex(h::Header, key::AbstractString)
+function Base.getindex(h::Filterbank.Header, key::AbstractString)
   getindex(h, Symbol(lowercase(key)))
 end
 
-function Base.get(h::Header, key::Symbol, default=nothing)
+function Base.get(h::Filterbank.Header, key::Symbol, default=nothing)
   get(getfield(h, :dict), key, default)
 end
 
-function Base.get(h::Header, key::AbstractString, default=nothing)
+function Base.get(h::Filterbank.Header, key::AbstractString, default=nothing)
   get(h, Symbol(lowercase(key)), default)
 end
 
-function Base.getproperty(h::Header, sym::Symbol)
+function Base.getproperty(h::Filterbank.Header, sym::Symbol)
   get(h, sym, nothing)
 end
 
-function Base.length(h::Header)
+function Base.length(h::Filterbank.Header)
   length(getfield(h, :dict))
 end
 
-function Base.propertynames(h::Header)
+function Base.propertynames(h::Filterbank.Header)
   Tuple(keys(getfield(h, :dict)))
 end
 
-function Base.iterate(h::Header, state...)
+function Base.iterate(h::Filterbank.Header, state...)
   iterate(getfield(h, :dict), state...)
 end
 
-function Base.empty!(h::Header)
+function Base.empty!(h::Filterbank.Header)
   empty!(getfield(h, :dict))
 end
 
@@ -176,7 +168,7 @@ end
     read_header_item(f::Function, io::IO)
 
 Read a Filterbank header keyword and value from `io`. Call
-`f(keyword, value, valpo)`, where `keyword` and `value` are from the
+`f(keyword, value, valpos)`, where `keyword` and `value` are from the
 header item and `valpos` is the file position from which the value
 was read.  This can be used to update erroneous header values in
 place. Return `(keyword, value)`.
@@ -321,7 +313,7 @@ data after this function returns.  If `io` was positioned elsewhere, that
 position will remain unchanged after this function returns.
 
 This function adds some additional unofficial "convenience" fields to the
-returned Header:
+returned Filterbank.Header:
 - `:header_size`: number of bytes in header
 - `:data_size`: number of bytes of data
 - `:sample_size`: size of a single time sample (all channels, all IFs)
@@ -380,7 +372,7 @@ end
 
 Create a `Filterbank::Header` object, then call `read!()` to populate it.
 """
-Base.read(io::IO, ::Type{Header}) = read!(io, Header())
+Base.read(io::IO, ::Type{Filterbank.Header}) = read!(io, Filterbank.Header())
 
 """
     write(io::IO, fbh::Filterbank.Header)
@@ -403,35 +395,35 @@ function Base.write(io::IO, fbh::Filterbank.Header)
   position(io)
 end
 
-# This is a type alias for possible GuppiRaw data Arrays
+# This is a type alias for possible Filterbank data Arrays
 FilterbankArray = Union{Array{Int8},Array{Float32}}
 
 """
     Array(fbh::Filterbank.Header, nspec::Int=0; <kwargs>)
 
-Return an uninitialized Array sized for `nspec` spectra of Filterbank data as
-specified by metadata in `header`, specifically the `:nchans`, `:nifs`, and
-`:nbits` fields.  The data type of the Array elements will be `Int8` when
-`fbh.nbits == 8` or `Float32` when `fbh.nbits == 32`.
+Return an uninitialized Array sized for `nspec` spectra of Filterbank data with
+dimensions derived from metadata in `fbh`, specifically the `fbh.nchans`,
+`fbh.nifs`, and `fbh.nbits` fields.  The data type of the Array elements will
+be `Int8` when `fbh.nbits == 8` or `Float32` when `fbh.nbits == 32`.
 
-If `nspec` is zero, the Array will be sized to hold up to all spectra from the
+If `nspec` is zero, the Array will be sized to hold all spectra from the
 file or as many spectra as will fit in `maxmem` bytes, whichever is less.  The
-returned Array will hold at least one spectrum (assuming it gets successfuly
-allocated), even if that would exceed maxmem.  Files with exceptionally large
+returned Array will hold at least one spectrum (assuming it gets successfully
+allocated), even if that would exceed `maxmem`.  Files with exceptionally large
 numbers of channels may not be usable with this convention and the user will
 have to devise their own Array allocation scheme.
 
-The Array will be dimensioned as (nchans, nifs, nspec) unless `dropdims` is
-true in which case any singleton dimensions will be eliminated or `nants > 1`
-(see below).
+The Array will be dimensioned as (`fbh.nchans`, `fbh.nifs`, `nspec`) unless
+`nants > 1` (see below) or `dropdims` is true (in which case singleton
+dimensions will be eliminated).
 
 # Keyword Arguments
 - `dropdims::Bool=false`: drop singleton dimensions
 - `maxmem::Int64=1<<32`: limit `nspec` to not more than this many bytes
 - `nants`::Int=1: If `nants > 1`, split the `chan` dimension into
-   `nchan÷nants` and `nants` dimensions.  It is an error if `nchans` is not a
-   multiple of `nants`.  The Array will be dimensioned as (nchans÷nants, nants,
-   nifs, nspec).
+  `fbh.nchan÷nants` and `nants` dimensions.  It is an error if `fbh.nchans` is
+  not a multiple of `nants`.  The Array will be dimensioned as
+  (`fbh.nchans÷nants`, `nants`, `fbh.nifs`, `nspec`).
 """
 function Base.Array(fbh::Filterbank.Header, nspec::Integer=0;
                     dropdims::Bool=false,
@@ -493,25 +485,21 @@ function Base.Array(fbh::Filterbank.Header, nspec::Integer=0;
 end
 
 """
-    maskdc!(a::Array, ncoarse::Integer)
+    maskdc!(fbdata::Array, ncoarse::Integer)::Nothing
 
 Mask the center (aka "DC") fine channel of all the coarse channels that span
-the first dimentsion of `a`.  `ncoarse` must be the total number of coarse
-channels in `a`.
+the first dimension of `fbdata` by setting the DC fine channel to the mean of
+the two adjacent channels.  The number of coarse channels in `fbdata` must be
+passed as `ncoarse`.  The `fbdata` Array is modified in-place.
 """
-function maskdc!(a::FilterbankArray, ncoarse::Integer)::Nothing
-  @assert size(a,1) % ncoarse == 0 "invalid ncoarse ($ncoarse)"
-  nfpc = size(a,1) ÷ ncoarse
-  b = reshape(a, nfpc, :)
+function maskdc!(fbdata::FilterbankArray, ncoarse::Integer)::Nothing
+  @assert size(fbdata,1) % ncoarse == 0 "invalid ncoarse ($ncoarse)"
+  nfpc = size(fbdata,1) ÷ ncoarse
+  b = reshape(fbdata, nfpc, :)
   dc = nfpc ÷ 2 + 1
   b[dc, :] = (b[dc-1, :] + b[dc+1, :]) / 2
   nothing
 end
-
-end # module Filterbank
-
-export chanfreq
-export chanfreqs
 
 """
     chanfreq(fbh::Filterbank.Header, chan::Real)::Float64
