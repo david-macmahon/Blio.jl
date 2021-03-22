@@ -95,6 +95,10 @@ function Base.empty!(h::Header)
   empty!(getfield(h, :dict))
 end
 
+function Base.delete!(h::Header, key::Symbol)
+  delete!(getfield(h, :dict), key)
+end
+
 """
 Returns the number of channels per antenna (i.e. `obsnchan ÷ nants`).
 Missing `nants` implies `nants == 1`.

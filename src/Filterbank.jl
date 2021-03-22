@@ -80,6 +80,10 @@ function Base.empty!(h::Filterbank.Header)
   empty!(getfield(h, :dict))
 end
 
+function Base.delete!(h::Filterbank.Header, key::Symbol)
+  delete!(getfield(h, :dict), key)
+end
+
 """
 Reads a native-endian Int32 from `io`
 """
