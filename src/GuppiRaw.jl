@@ -17,6 +17,7 @@ export Header
 
 using Printf
 using OrderedCollections
+using Requires
 
 # Header record size
 const HEADER_REC_SIZE = 80
@@ -97,6 +98,16 @@ end
 
 function Base.delete!(h::Header, key::Symbol)
   delete!(getfield(h, :dict), key)
+end
+
+# Add DataFrame constructor for Vector{GuppiRaw.Header} if/when DataFrames is
+# imported.
+function __init__()
+  @require DataFrames="a93c6f00-e57d-5684-b7b6-d8193f3e46c0" begin
+    function DataFrames.DataFrame(v::Vector{Header})
+      reduce((df,h)->push!(df,h,cols=:union), v, init=DataFrames.DataFrame())
+    end
+  end
 end
 
 """
