@@ -107,6 +107,10 @@ function __init__()
     function DataFrames.DataFrame(v::Vector{Header})
       DataFrames.DataFrame(DataFrames.Tables.dictcolumntable(v))
     end
+
+    function DataFrames.push!(df::DataFrames.DataFrame, grh::Header)
+      DataFrames.push!(df, getfield(grh, :dict), cols=:union)
+    end
   end
 end
 
