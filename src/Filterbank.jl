@@ -1,6 +1,11 @@
+import Mmap
+
 export maskdc!
 export chanfreq
 export chanfreqs
+
+# This is a type alias for possible Filterbank data Arrays
+FilterbankArray = Union{Array{Int8},Array{Float32},Base.ReinterpretArray}
 
 """
 Module for interacting with Filterbank files.
@@ -20,6 +25,7 @@ module Filterbank
 
 export Header
 
+import Blio
 using OrderedCollections
 using Requires
 
@@ -48,6 +54,22 @@ function __init__()
       DataFrames.push!(df, getfield(fbh, :dict), cols=:union)
     end
   end
+end
+
+"""
+    mmap(fb::Union{IOStream,AbstractString})::Tuple{Filterbank.Header, Array}
+
+Return a Filterbank.Header object and a memory mapped data Array for the data
+in `fb`.
+"""
+function mmap(fb::IOStream)::Tuple{Filterbank.Header, Blio.FilterbankArray}
+  fbh = read(fb, Filterbank.Header)
+  data = Blio.mmap(fb, fbh)
+  fbh, data
+end
+
+function mmap(fbname::AbstractString)::Tuple{Filterbank.Header, Blio.FilterbankArray}
+  open(mmap, fbname)
 end
 
 end # module Filterbank
@@ -467,8 +489,36 @@ Base.size(fbh::Filterbank.Header, dim;
           nants::Integer=1
          ) = size(fbh; dropdims=dropdims, nants=nants)[dim]
 
-# This is a type alias for possible Filterbank data Arrays
-FilterbankArray = Union{Array{Int8},Array{Float32}}
+"""
+    mmap(fb::Union{IOStream,AbstractString})::Tuple{Filterbank.Header, Array}
+    mmap(fb::IOStream, fbh::Filterbank.Header)::Array
+
+Create a memory mapped Array for the data in `fb`.  If Filterbank.Header `fbh`
+is passed, it will be used to determine Array type/size as well as the file
+position offset in `fb` and only the memory mapped data Array will be returned.
+Otherwise, a Filterbank.Header object eill be created from the contents of
+`fb` and it will be returned along with the memory mapped data Array as a
+`Tuple{Filterbank.Header, Array}`.
+"""
+function mmap(fb::IOStream, fbh::Filterbank.Header)::FilterbankArray
+  dims = size(fbh)
+  # size() enforces nbits == 8 or nbits == 32
+  if fbh[:nbits] == 8
+    eltype = Int8
+  else
+    eltype = Float32
+  end
+  # If data is "type aligned"
+  if fbh[:header_size] % sizeof(eltype) == 0
+    data = Mmap.mmap(fb, Array{eltype, length(dims)}, dims, fbh[:header_size]; grow=false)
+  else
+    @warn "data in file is not type aligned"
+    dims = (sizeof(eltype), dims...)
+    data = reinterpret(reshape, eltype,
+           Mmap.mmap(fb, Array{UInt8, length(dims)}, dims, fbh[:header_size]; grow=false))
+  end
+  return data
+end
 
 """
     Array(fbh::Filterbank.Header, nsamps::Int=0; <kwargs>)
