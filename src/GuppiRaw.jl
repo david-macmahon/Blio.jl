@@ -18,6 +18,7 @@ export Header
 using Printf
 using OrderedCollections
 using Requires
+import Blio
 
 # Header record size
 const HEADER_REC_SIZE = 80
@@ -277,6 +278,42 @@ function Base.write(io::IO, grh::GuppiRaw.Header;
   return bytes_written
 end
 
+"""
+   size(grh::GuppiRaw.Header[, dim])
+
+Return a tuple containing the dimensions of the data block described by `grh`.
+Optionally you can specify a dimension to just get the length of that
+dimension.
+
+If `NANTS` is 1 or unspecified, the returned tuple have three elements
+corresponding to `(npol, ntime, obsnchan)`.
+
+If `NANTS` is greater than 1, the returned tuple will have four elements
+corresponding to `(npol, ntime, obsnchan÷nants, nants)`.
+"""
+function Base.size(grh::Header)
+  @assert haskey(grh, :blocsize) "header has no blocsize field"
+  @assert haskey(grh, :obsnchan) "header has no obsnchan field"
+
+  blocsize = grh.blocsize
+
+  obsnants = get(grh, :nants, 1)
+  obsnchan = grh.obsnchan
+  obsntime = Blio.ntime(grh)
+  npol = get(grh, :npol, 1) < 2 ? 1 : 2
+
+  if obsnants > 1
+    @assert obsnchan % obsnants == 0 "obsnchn $obsnchn not divisible by nants $obsnants"
+    dims = (npol, obsntime, obsnchan÷obsnants, obsnants)
+  else
+    dims = (npol, obsntime, obsnchan)
+  end
+
+  dims
+end
+
+Base.size(grh::Header, dim) = size(grh)[dim]
+
 # This is a type alias for possible GuppiRaw data Arrays
 RawArray = Union{Array{Complex{Int8}},Array{Complex{Int16}}}
 
@@ -309,39 +346,39 @@ function Base.Array(grh::Header, nchan::Int=0)::RawArray
   # antnchan is number of channels per antenna
   antnchan = GuppiRaw.antnchan(grh)
 
-  if nchan <= 0
-    # Size for all channels, all antennas
-    nchan = antnchan
-    nants = obsnants
-  elseif nchan > obsnchan
-    # Size for all channels, all antennas, but warn
-    @warn "limiting excessive nchan to obsnchan"
-    nchan = antnchan
-    nants = obsnants
-  elseif obsnants > 1 && nchan % antnchan == 0
-    # Size for nchan ÷ antnchan antennas, antnchan channels
-    nants = nchan ÷ antnchan
-    nchan = antnchan
-  else
-    # Treat as if obsnants were 1
-    nants = 1
-  end
+  dims = size(grh)
 
-  npol = get(grh, :npol, 1) < 2 ? 1 : 2
+  # If a specific number of channels are requested
+  if nchan > 0
+    # If nants > 1 (i.e. length of dims is 4)
+    if length(dims) == 4
+      antnchan = dims[3]
+      obsnants = dims[4]
+      if nchan > obsnants * antnchan
+        nchan = obsnants * antnchan
+        @warn "nchan limited to $nchan"
+      end
+      if nchan % antnchan != 0
+        @warn "nchan $nchan not divisible by antnchan $antnchan"
+        dims = (dims[1:2]..., nchan)
+      else
+        obsnants = nchan ÷ antnchan
+        dims = (dims[1:3]..., obsnants)
+      end
+    else
+      # nants==1 case
+      obsnchan = dims[3]
+      if nchan > obsnchan
+        nchan = obsnchan
+        @warn "nchan limited to $nchan"
+      end
+      dims = (dims[1:2]..., nchan)
+    end
+  end
 
   nbits = get(grh, :nbits, 8)
   @assert nbits == 8 || nbits == 16 "unsupported nbits ($nbits)"
   eltype = nbits == 8 ? Int8 : Int16
-
-  ntime, rem = divrem(8 * blocsize, 2 * obsnchan * npol * nbits)
-  @assert rem == 0
-  @assert typeof(ntime) <: Int
-
-  if nants > 1
-    dims = (npol, ntime, nchan, nants)
-  else
-    dims = (npol, ntime, nchan)
-  end
 
   Array{Complex{eltype}}(undef, dims)
 end

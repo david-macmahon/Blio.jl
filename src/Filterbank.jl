@@ -10,7 +10,8 @@ See also:
 [`read!(io::IO, fbh::Filterbank.Header)`](@ref),
 [`read(io::IO, ::Type{Filterbank.Header})`](@ref),
 [`write(io::IO, fbh::Filterbank.Header)`](@ref),
-[`Array(fbh::Filterbank.Header, nspec::Int=1; dropdims::Bool=false)`](@ref)
+[`size(fbh::Filterbank.Header[, dim]; <kwargs>)`](@ref),
+[`Array(fbh::Filterbank.Header, nspec::Int=1; <kwargs>)`](@ref)
 [`chanfreq(fbh::Filterbank.Header, chan::Real)`](@ref)
 [`chanfreqs(fbh::Filterbank.Header, chans::AbstractRange)`](@ref)
 [`maskdc!(a::Array{Number}, ncoarse::Integer)`](@ref)
@@ -414,41 +415,23 @@ function Base.write(io::IO, fbh::Filterbank.Header)
   position(io)
 end
 
-# This is a type alias for possible Filterbank data Arrays
-FilterbankArray = Union{Array{Int8},Array{Float32}}
-
 """
-    Array(fbh::Filterbank.Header, nspec::Int=0; <kwargs>)
+    size(fbh::Filterbank.Header[, dim]; <kwargs>)
 
-Return an uninitialized Array sized for `nspec` spectra of Filterbank data with
-dimensions derived from metadata in `fbh`, specifically the `fbh.nchans`,
-`fbh.nifs`, and `fbh.nbits` fields.  The data type of the Array elements will
-be `Int8` when `fbh.nbits == 8` or `Float32` when `fbh.nbits == 32`.
-
-If `nspec` is zero, the Array will be sized to hold all spectra from the
-file or as many spectra as will fit in `maxmem` bytes, whichever is less.  The
-returned Array will hold at least one spectrum (assuming it gets successfully
-allocated), even if that would exceed `maxmem`.  Files with exceptionally large
-numbers of channels may not be usable with this convention and the user will
-have to devise their own Array allocation scheme.
-
-The Array will be dimensioned as (`fbh.nchans`, `fbh.nifs`, `nspec`) unless
-`nants > 1` (see below) or `dropdims` is true (in which case singleton
-dimensions will be eliminated).
+Return a tuple containing the dimensions of the data described by `fbh`.
+Optionally you can specify a dimension to just get the length of that
+dimension.
 
 # Keyword Arguments
 - `dropdims::Bool=false`: drop singleton dimensions
-- `maxmem::Int64=1<<32`: limit `nspec` to not more than this many bytes
-- `nants`::Int=1: If `nants > 1`, split the `chan` dimension into
+- `nants::Int=1`: If `nants > 1`, split the `chan` dimension into
   `fbh.nchan÷nants` and `nants` dimensions.  It is an error if `fbh.nchans` is
-  not a multiple of `nants`.  The Array will be dimensioned as
-  (`fbh.nchans÷nants`, `nants`, `fbh.nifs`, `nspec`).
+  not a multiple of `nants`.
 """
-function Base.Array(fbh::Filterbank.Header, nspec::Integer=0;
-                    dropdims::Bool=false,
-                    maxmem::Int64=1<<32,
-                    nants::Integer=1
-                   )::FilterbankArray
+function Base.size(fbh::Filterbank.Header;
+                   dropdims::Bool=false,
+                   nants::Integer=1
+                  )
   nchans = get(fbh, :nchans, 0)
   @assert nchans > 0 "invalid nchans ($nchans)"
   @assert nants > 0 "invalid nants ($nants)"
@@ -460,28 +443,89 @@ function Base.Array(fbh::Filterbank.Header, nspec::Integer=0;
   nifs = get(fbh, :nifs, 1)
   @assert nifs > 0 "unsupported nifs ($nifs)"
 
-  @assert maxmem >= 0 "maxmem must ne non-negative"
-
-  # Only nbits 8 or 32 are supported, so divide by 8 isn't a problem
-  sample_size = nchans * nifs * nbits ÷ 8
-  max_spec = get(fbh, :data_size, 0) ÷ sample_size
-
-  # Limit max_spec to maxmem
-  if max_spec * sample_size > maxmem
-    max_spec = maxmem ÷ sample_size
+  if haskey(fbh, :nsamps)
+    nsamps = fbh[:nsamps]
+  else
+    sample_size = get(fbh, :sample_size, nchans * nifs * nbits ÷ 8)
+    nsamps = get(fbh, :data_size, 0) ÷ sample_size
   end
 
-  if max_spec == 0
-    # No data_size(!?) or 1 sample exceeds maxmem
-    max_spec = 1
+  dims = (nchans, nifs, nsamps)
+  if dropdims
+    dims = filter(x->x!=1, dims)
   end
 
-  # nspec <= 0 means max_spec
-  if nspec <= 0
-    nspec = max_spec
-  elseif nspec > max_spec
-    @warn "limiting nspec to $max_spec"
-    nspec = max_spec
+  if nants > 1
+    dims = (dims[1] ÷ nants, nants, dims[2:end]...)
+  end
+
+  dims
+end
+
+Base.size(fbh::Filterbank.Header, dim;
+          dropdims::Bool=false,
+          nants::Integer=1
+         ) = size(fbh; dropdims=dropdims, nants=nants)[dim]
+
+# This is a type alias for possible Filterbank data Arrays
+FilterbankArray = Union{Array{Int8},Array{Float32}}
+
+"""
+    Array(fbh::Filterbank.Header, nsamps::Int=0; <kwargs>)
+
+Return an uninitialized Array sized for `nsamps` spectra of Filterbank data
+with dimensions derived from metadata in `fbh`, specifically the `fbh.nchans`,
+`fbh.nifs`, and `fbh.nbits` fields.  The data type of the Array elements will
+be `Int8` when `fbh.nbits == 8` or `Float32` when `fbh.nbits == 32`.
+
+If `nsamps` is zero, the Array will be sized to hold all spectra from the file
+or as many spectra as will fit in `maxmem` bytes, whichever is less.  The
+returned Array will hold at least one spectrum (assuming it gets successfully
+allocated), even if that would exceed `maxmem`.  Files with exceptionally large
+numbers of channels may not be usable with this convention and the user will
+have to devise their own Array allocation scheme.
+
+The Array will be dimensioned as (`fbh.nchans`, `fbh.nifs`, `nsamps`) unless
+`nants > 1` (see below) or `dropdims` is true (in which case singleton
+dimensions will be eliminated).
+
+# Keyword Arguments
+- `dropdims::Bool=false`: drop singleton dimensions
+- `maxmem::Int64=1<<32`: limit `nsamps` to not more than this many bytes
+- `nants`::Int=1: If `nants > 1`, split the `chan` dimension into
+  `fbh.nchan÷nants` and `nants` dimensions.  It is an error if `fbh.nchans` is
+  not a multiple of `nants`.  The Array will be dimensioned as
+  (`fbh.nchans÷nants`, `nants`, `fbh.nifs`, `nsamps`).
+"""
+function Base.Array(fbh::Filterbank.Header, nsamps::Integer=0;
+                    dropdims::Bool=false,
+                    maxmem::Int64=1<<32,
+                    nants::Integer=1
+                   )::FilterbankArray
+  # Get size of data
+  nchans, nifs, max_nsamps = size(fbh)
+
+  # Only nbits 8 or 32 are supported, validated in `size()`,
+  # so divide by 8 isn't a problem
+  nbits = get(fbh, :nbits, 32)
+  sample_size = get(fbh, :sample_size, nchans * nifs * nbits ÷ 8)
+
+  # Limit max_nsamps to maxmem
+  if max_nsamps * sample_size > maxmem
+    max_nsamps = maxmem ÷ sample_size
+  end
+
+  if max_nsamps == 0
+    # 1 sample exceeds maxmem
+    max_nsamps = 1
+  end
+
+  # nsamps <= 0 means max_nsamps
+  if nsamps <= 0
+    nsamps = max_nsamps
+  elseif nsamps > max_nsamps
+    @warn "nsamps limited to $max_nsamps"
+    nsamps = max_nsamps
   end
 
   if nbits == 8
@@ -490,17 +534,16 @@ function Base.Array(fbh::Filterbank.Header, nspec::Integer=0;
     eltype = Float32
   end
 
-  dims = [nchans, nifs, nspec]
+  dims = (nchans, nifs, nsamps)
   if dropdims
-    filter!(x->x!=1, dims)
+    dims = filter(x->x!=1, dims)
   end
 
   if nants > 1
-    prepend!(dims, dims[1] ÷ nants)
-    dims[2] = nants
+    dims = (dims[1] ÷ nants, nants, dims[2:end]...)
   end
 
-  Array{eltype}(undef, dims...)
+  Array{eltype}(undef, dims)
 end
 
 """
