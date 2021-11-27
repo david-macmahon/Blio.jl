@@ -407,7 +407,7 @@ function chanfreq(grh::GuppiRaw.Header, chan::Real)::Float64
   # Subtract 1 and modulo antnchan
   chan = (chan-1) % antnchan
 
-  grh.obsfreq - grh.obsnchan*grh.chan_bw/2 + grh.chan_bw*(chan + 0.5)
+  grh.obsfreq - antnchan*grh.chan_bw/2 + grh.chan_bw*(chan + 0.5)
 end
 
 """
