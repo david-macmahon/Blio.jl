@@ -623,7 +623,7 @@ channel 1 (i.e. `chan` is one-based).
 function chanfreq(fbh::Filterbank.Header, chan::Real)::Float64
   @assert haskey(fbh, :fch1) "header has no fch1 field"
   @assert haskey(fbh, :foff) "header has no foff field"
-  fbh.fch1 + fbh.foff * (chan-1)
+  fbh[:fch1] + fbh[:foff] * (chan-1)
 end
 
 """
@@ -639,13 +639,13 @@ function chanfreqs(fbh::Filterbank.Header)::AbstractRange
   @assert haskey(fbh, :fch1) "header has no fch1 field"
   @assert haskey(fbh, :foff) "header has no foff field"
   @assert haskey(fbh, :nchans) "header has no nchans field"
-  range(fbh.fch1, step=fbh.foff, length=fbh.nchans)
+  range(fbh[:fch1], step=fbh[:foff], length=fbh[:nchans])
 end
 
 function chanfreqs(fbh::Filterbank.Header,
                         chans::AbstractRange)::AbstractRange
   range(chanfreq(fbh, first(chans)),
-        step=fbh.foff*step(chans),
+        step=fbh[:fieldoffset]*step(chans),
         length=length(chans)
        )
 end

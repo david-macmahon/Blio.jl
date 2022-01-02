@@ -124,7 +124,7 @@ function antnchan(grh::GuppiRaw.Header)::Int
   obsnants = get(grh, :nants, 1)
   @assert typeof(obsnants) <: Int
 
-  obsnchan = grh.obsnchan
+  obsnchan = grh[:obsnchan]
   @assert typeof(obsnchan) <: Int
   @assert obsnchan % obsnants == 0 "nants must divide obsnchan"
 
@@ -295,7 +295,7 @@ function Base.size(grh::Header)
   @assert haskey(grh, :obsnchan) "header has no obsnchan field"
 
   obsnants = get(grh, :nants, 1)
-  obsnchan = grh.obsnchan
+  obsnchan = grh[:obsnchan]
   obsntime = Blio.ntime(grh)
   npol = get(grh, :npol, 1) < 2 ? 1 : 2
 
@@ -338,7 +338,7 @@ function Base.Array(grh::Header, nchan::Int=0)::RawArray
   @assert haskey(grh, :obsnchan) "header has no obsnchan field"
 
   obsnants = get(grh, :nants, 1)
-  obsnchan = grh.obsnchan
+  obsnchan = grh[:obsnchan]
   # antnchan is number of channels per antenna
   antnchan = GuppiRaw.antnchan(grh)
 
@@ -402,12 +402,12 @@ function chanfreq(grh::GuppiRaw.Header, chan::Real)::Float64
   # Subtract 1 and modulo antnchan
   chan = (chan-1) % antnchan
 
-  grh.obsfreq - antnchan*grh.chan_bw/2 + grh.chan_bw*(chan + 0.5)
+  grh[:obsfreq] - antnchan*grh[:chan_bw]/2 + grh[:chan_bw]*(chan + 0.5)
 end
 
 """
     chanfreqs(grh::GuppiRaw.Header,
-              chans::AbstractRange=1:grh.obsnchan/grh.nants)::AbstractRange
+              chans::AbstractRange=1:grh[:obsnchan]/grh[:nants])::AbstractRange
 
 Returns the center frequencies of the channels given by `chans` based on the
 `obsfreq`, `chan_bw`, `obsnchan`, and `nants` fields of `grh`.  The first
@@ -419,13 +419,13 @@ function chanfreqs(grh::GuppiRaw.Header)::AbstractRange
   # antnchan is number of channels per antenna
   antnchan = GuppiRaw.antnchan(grh)
 
-  range(chanfreq(grh, 1), step=grh.chan_bw, length=antnchan)
+  range(chanfreq(grh, 1), step=grh[:chan_bw], length=antnchan)
 end
 
 function chanfreqs(grh::GuppiRaw.Header,
                         chans::AbstractRange)::AbstractRange
   range(chanfreq(grh, first(chans)),
-        step=grh.chan_bw*step(chans),
+        step=grh[:chan_bw]*step(chans),
         length=length(chans)
        )
 end
@@ -443,7 +443,7 @@ function ntime(grh::GuppiRaw.Header)::Integer
   nbits = get(grh, :nbits, 8)
   @assert nbits == 8 || nbits == 16 "unsupported nbits ($nbits)"
 
-  nt, rem = divrem(8 * grh.blocsize, 2 * grh.obsnchan * npol * nbits)
+  nt, rem = divrem(8 * grh[:blocsize], 2 * grh[:obsnchan] * npol * nbits)
   @assert rem == 0
 
   return nt
