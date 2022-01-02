@@ -311,8 +311,10 @@ end
 
 Base.size(grh::Header, dim) = size(grh)[dim]
 
-# This is a type alias for possible GuppiRaw data Arrays
-RawArray = Union{Array{Complex{Int8}},Array{Complex{Int16}}}
+"""
+Type alias for possible GuppiRaw data Arrays
+"""
+const RawArray = Union{Array{Complex{Int8}},Array{Complex{Int16}}}
 
 """
     Array(grh::GuppiRaw.Header, nchan::Int=0)::Array{Complex{Integer}}
