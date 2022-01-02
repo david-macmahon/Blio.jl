@@ -300,7 +300,7 @@ function Base.size(grh::Header)
   npol = get(grh, :npol, 1) < 2 ? 1 : 2
 
   if obsnants > 1
-    @assert obsnchan % obsnants == 0 "obsnchn $obsnchn not divisible by nants $obsnants"
+    @assert obsnchan % obsnants == 0 "obsnchn $obsnchan not divisible by nants $obsnants"
     dims = (npol, obsntime, obsnchan÷obsnants, obsnants)
   else
     dims = (npol, obsntime, obsnchan)
