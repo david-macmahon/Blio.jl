@@ -292,10 +292,7 @@ If `NANTS` is greater than 1, the returned tuple will have four elements
 corresponding to `(npol, ntime, obsnchan÷nants, nants)`.
 """
 function Base.size(grh::Header)
-  @assert haskey(grh, :blocsize) "header has no blocsize field"
   @assert haskey(grh, :obsnchan) "header has no obsnchan field"
-
-  blocsize = grh.blocsize
 
   obsnants = get(grh, :nants, 1)
   obsnchan = grh.obsnchan
@@ -336,10 +333,7 @@ then the returned array will be dimensioned as [npol, ntime, obsnchan/nants,
 nchan*nants/obschan] (i.e. it will have an extra antenna dimension).
 """
 function Base.Array(grh::Header, nchan::Int=0)::RawArray
-  @assert haskey(grh, :blocsize) "header has no blocsize field"
   @assert haskey(grh, :obsnchan) "header has no obsnchan field"
-
-  blocsize = grh.blocsize
 
   obsnants = get(grh, :nants, 1)
   obsnchan = grh.obsnchan
@@ -398,7 +392,6 @@ channel in the file is considered to be channel 1 (i.e. `chan` is one-based).
 """
 function chanfreq(grh::GuppiRaw.Header, chan::Real)::Float64
   @assert haskey(grh, :obsfreq) "header has no obsfreq field"
-  @assert haskey(grh, :obsnchan) "header has no obsnchan field"
   @assert haskey(grh, :chan_bw) "header has no chan_bw field"
 
   # antnchan is number of channels per antenna
