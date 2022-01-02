@@ -3,6 +3,7 @@ Module for interacting with GuppiRaw files.
 
 See also:
 [`GuppiRaw.Header`](@ref),
+[`GuppiRaw.HeaderDataUnit`](@ref),
 [`read!(io::IO, grh::GuppiRaw.Header)`](@ref),
 [`read(io::IO, ::Type{GuppiRaw.Header})`](@ref),
 [`write(io::IO, grh::GuppiRaw.Header)`](@ref),
@@ -10,6 +11,7 @@ See also:
 [`chanfreq(grh::GuppiRaw.Header, chan::Real)`](@ref)
 [`chanfreqs(grh::GuppiRaw.Header, chans::AbstractRange)`](@ref)
 [`ntime(GuppiRaw.Header)`](@ref)
+[`resize_hdu(hdu::GuppiRaw.HeaderDataUnit)`](@ref)
 """
 module GuppiRaw
 
@@ -317,6 +319,33 @@ Type alias for possible GuppiRaw data Arrays
 const RawArray = Union{Array{Complex{Int8}},Array{Complex{Int16}}}
 
 """
+A HeaderDataUnit is a struct consisting of a Header and a RawArray
+"""
+struct HeaderDataUnit
+  hdr::Header
+  data::RawArray
+end
+
+"""
+    HeaderDataUnit(grh::GuppiRaw.Header=GuppiRaw.Header())
+
+Construct a HeaderDataUnit from a `grh`.  If `grh` is empty, the `data` field
+will be `Complex{Int8}[]`, otherwise it will be `Array(grh)`.  Note that `grh`
+is not copied, so when making multiple HeaderDataUnits be sure to use a
+different Header instance for each one.
+"""
+function HeaderDataUnit(grh::Header=Header())::HeaderDataUnit
+  data = isempty(grh) ? Complex{Int8}[] : Array(grh)
+  HeaderDataUnit(grh, data)
+end
+
+# Show HDUs compactly
+Base.show(io::IO, hdu::HeaderDataUnit) = print(io,
+  "GuppiRaw.HeaderDataUnit(hdr: ", length(hdu.hdr), " items, ",
+                         "data: ", typeof(hdu.data), size(hdu.data), ")"
+)
+
+"""
     Array(grh::GuppiRaw.Header, nchan::Int=0)::Array{Complex{Integer}}
 
 Return an uninitialized 3 or 4 dimensional Array sized for `nchan` channels of
@@ -384,6 +413,7 @@ end # module GuppiRaw
 export chanfreq
 export chanfreqs
 export ntime
+export resize_hdu
 
 """
     chanfreq(grh::GuppiRaw.Header, chan::Real)::Float64
@@ -447,4 +477,32 @@ function ntime(grh::GuppiRaw.Header)::Integer
   @assert rem == 0
 
   return nt
+end
+
+"""
+    resize_hdu(hdu::GuppiRaw.HeaderDataUnit)::GuppiRaw.HeaderDataUnit
+
+Return a `HeaderDataUnit` whose `data` Array is appropriately typed and sized for
+the data block described by `hdu.hdr`.  If `hdu.data` is already appropriately
+typed and sized then `hdu` is returned, otherwise a new `HeaderDataUnit` is
+returned with the same `Header` object as `hdu.hdr` but a new `data` Array that
+is appropriately typed and sized according to `hdu.hdr`.
+"""
+function resize_hdu(hdu::GuppiRaw.HeaderDataUnit)::GuppiRaw.HeaderDataUnit
+  nbits = get(hdu.hdr, :nbits, 8)
+  @assert nbits == 8 || nbits == 16 "unsupported nbits ($nbits)"
+  reimtype = nbits == 8 ? Int8 : Int16
+
+  if isempty(hdu.hdr)
+    if isempty(hdu.data) && eltype(hdu.data) == Complex{Int8}
+      return hdu
+    else
+      return GuppiRaw.HeaderDataUnit(hdu.hdr, Complex{Int8}[])
+    end
+  elseif (size(hdu.hdr) == size(hdu.data)
+      &&  eltype(hdu.data) == Complex{reimtype})
+    return hdu
+  end
+
+  GuppiRaw.HeaderDataUnit(hdu.hdr, Array(hdu.hdr))
 end
