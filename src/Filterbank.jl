@@ -27,7 +27,6 @@ export Header
 
 import Blio
 using OrderedCollections
-using Requires
 
 """
 Type used to hold a Filterbank header.  Acts very much like an OrderedDict with
@@ -42,16 +41,16 @@ struct Header <: AbstractDict{Symbol, Any}
   end
 end
 
-# Add DataFrame constructor for Vector{Filterbank.Header} if/when DataFrames is
-# imported.
-function __init__()
-  @require DataFrames="a93c6f00-e57d-5684-b7b6-d8193f3e46c0" begin
-    function DataFrames.DataFrame(v::Vector{Header})
-      DataFrames.DataFrame(DataFrames.Tables.dictcolumntable(v))
-    end
-
-    function DataFrames.push!(df::DataFrames.DataFrame, fbh::Header)
-      DataFrames.push!(df, getfield(fbh, :dict), cols=:union)
+# For Julia < 1.9.0
+if !isdefined(Base, :get_extension)
+  # Add DataFrame constructor for Vector{Filterbank.Header} if/when DataFrames
+  # is imported.
+  using Requires
+end
+@static if !isdefined(Base, :get_extension)
+  function __init__()
+    @require DataFrames="a93c6f00-e57d-5684-b7b6-d8193f3e46c0" begin
+      include("../ext/DataFramesFilterbankExt.jl")
     end
   end
 end
