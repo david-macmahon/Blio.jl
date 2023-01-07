@@ -12,8 +12,11 @@ Requires = "ae029012-a4dd-5104-9daa-d747884805df"
 [weakdeps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 
-[compat]
-DataFrames = "1.0.0"
-
 [extensions]
 DataFramesBlioExt = "DataFrames"
+
+[extras]
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+
+[compat]
+DataFrames = "1.0.0"
