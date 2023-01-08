@@ -1,3 +1,11 @@
+export blocksize
+export chanfreq
+export chanfreqs
+export getntime
+export resize_hdu
+
+import Base.size
+
 """
 Module for interacting with GuppiRaw files.
 
@@ -8,9 +16,10 @@ See also:
 [`read(io::IO, ::Type{GuppiRaw.Header})`](@ref),
 [`write(io::IO, grh::GuppiRaw.Header)`](@ref),
 [`Array(grh::GuppiRaw.Header, nchan::Int=0)`](@ref)
+[`blocksize(GuppiRaw.Header)`](@ref),
 [`chanfreq(grh::GuppiRaw.Header, chan::Real)`](@ref)
 [`chanfreqs(grh::GuppiRaw.Header, chans::AbstractRange)`](@ref)
-[`ntime(GuppiRaw.Header)`](@ref)
+[`getntime(GuppiRaw.Header)`](@ref)
 [`resize_hdu(hdu::GuppiRaw.HeaderDataUnit)`](@ref)
 """
 module GuppiRaw
@@ -19,7 +28,6 @@ export Header
 
 using Printf
 using OrderedCollections
-import Blio
 
 # Header record size
 const HEADER_REC_SIZE = 80
@@ -280,39 +288,6 @@ function Base.write(io::IO, grh::GuppiRaw.Header;
 end
 
 """
-   size(grh::GuppiRaw.Header[, dim])
-
-Return a tuple containing the dimensions of the data block described by `grh`.
-Optionally you can specify a dimension to just get the length of that
-dimension.
-
-If `NANTS` is 1 or unspecified, the returned tuple have three elements
-corresponding to `(npol, ntime, obsnchan)`.
-
-If `NANTS` is greater than 1, the returned tuple will have four elements
-corresponding to `(npol, ntime, obsnchan÷nants, nants)`.
-"""
-function Base.size(grh::Header)
-  @assert haskey(grh, :obsnchan) "header has no obsnchan field"
-
-  obsnants = get(grh, :nants, 1)
-  obsnchan = grh[:obsnchan]
-  obsntime = Blio.ntime(grh)
-  npol = get(grh, :npol, 1) < 2 ? 1 : 2
-
-  if obsnants > 1
-    @assert obsnchan % obsnants == 0 "obsnchn $obsnchan not divisible by nants $obsnants"
-    dims = (npol, obsntime, obsnchan÷obsnants, obsnants)
-  else
-    dims = (npol, obsntime, obsnchan)
-  end
-
-  dims
-end
-
-Base.size(grh::Header, dim) = size(grh)[dim]
-
-"""
 Type alias for possible GuppiRaw data Arrays
 """
 const RawArray = Union{Array{Complex{Int8}},Array{Complex{Int16}}}
@@ -409,10 +384,42 @@ end
 
 end # module GuppiRaw
 
-export chanfreq
-export chanfreqs
-export ntime
-export resize_hdu
+"""
+   blocksize(grh::GuppiRaw.Header[, dim])
+
+Return a tuple containing the dimensions of the data block described by `grh`.
+Optionally you can specify a dimension to just get the length of that
+dimension.
+
+If `NANTS` is 1 or unspecified, the returned tuple have three elements
+corresponding to `(npol, ntime, obsnchan)`.
+
+If `NANTS` is greater than 1, the returned tuple will have four elements
+corresponding to `(npol, ntime, obsnchan÷nants, nants)`.
+"""
+function blocksize(grh::GuppiRaw.Header)
+  @assert haskey(grh, :obsnchan) "header has no obsnchan field"
+
+  obsnants = get(grh, :nants, 1)
+  obsnchan = grh[:obsnchan]
+  obsntime = getntime(grh)
+  npol = get(grh, :npol, 1) < 2 ? 1 : 2
+
+  if obsnants > 1
+    @assert obsnchan % obsnants == 0 "obsnchn $obsnchan not divisible by nants $obsnants"
+    dims = (npol, obsntime, obsnchan÷obsnants, obsnants)
+  else
+    dims = (npol, obsntime, obsnchan)
+  end
+
+  dims
+end
+
+blocksize(grh::GuppiRaw.Header, dim) = blocksize(grh)[dim]
+
+@deprecate size(grh::GuppiRaw.Header) blocksize(grh)
+
+@deprecate size(grh::GuppiRaw.Header, dim) blocksize(grh, dim)
 
 """
     chanfreq(grh::GuppiRaw.Header, chan::Real)::Float64
@@ -460,11 +467,11 @@ function chanfreqs(grh::GuppiRaw.Header,
 end
 
 """
-    ntime(grh::GuppiRaw.Header)::Integer
+    getntime(grh::GuppiRaw.Header)::Int
 
-Return the number of time samples per block
+Return the number of time samples per block.
 """
-function ntime(grh::GuppiRaw.Header)::Integer
+function getntime(grh::GuppiRaw.Header)::Int
   @assert haskey(grh, :blocsize) "header has no blocsize field"
   @assert haskey(grh, :obsnchan) "header has no obsnchan field"
 
@@ -477,6 +484,8 @@ function ntime(grh::GuppiRaw.Header)::Integer
 
   return nt
 end
+
+@deprecate ntime(grh) getntime(grh)
 
 """
     resize_hdu(hdu::GuppiRaw.HeaderDataUnit)::GuppiRaw.HeaderDataUnit
