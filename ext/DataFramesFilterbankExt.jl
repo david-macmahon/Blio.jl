@@ -9,7 +9,8 @@ else
 end
 
 function DataFrame(v::Vector{Header})
-    DataFrame(Tables.dictcolumntable(v))
+    df = DataFrame(Tables.dictcolumntable(v))
+    select!(df, sort(names(df)))
 end
 
 function push!(df::DataFrame, fbh::Header)
