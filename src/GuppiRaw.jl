@@ -9,6 +9,7 @@ See also:
 [`Base.write(io::IO, grh::GuppiRaw.Header)`](@ref),
 [`Base.Array(grh::GuppiRaw.Header, nchan::Int=0)`](@ref)
 [`blocksize(GuppiRaw.Header)`](@ref),
+[`blocktype(GuppiRaw.Header)`](@ref),
 [`chanfreq(grh::GuppiRaw.Header, chan::Real)`](@ref)
 [`chanfreqs(grh::GuppiRaw.Header, chans::AbstractRange)`](@ref)
 [`getntime(GuppiRaw.Header)`](@ref)
@@ -405,7 +406,24 @@ end
 
 blocksize(grh::Header, dim) = blocksize(grh)[dim]
 
+"""
+   blocktype(grh::GuppiRaw.Header)
 
+Return the type of an Array that corresponds to the data in the datablock
+described by `grh`.  This will typically be one of the following types:
+
+- `Array{Complex{Int8}, 3}` when `NBITS=8` and `NANTS=1`
+- `Array{Complex{Int8}, 4}` when `NBITS=8` and `NANTS>1`
+- `Array{Complex{Int16}, 3}` when `NBITS=16` and `NANTS=1`
+- `Array{Complex{Int16}, 4}` when `NBITS=16` and `NANTS>1`
+"""
+function blocktype(grh::Header)
+  ndims = length(blocksize(grh))
+  nbits = get(grh, :nbits, 8)
+  @assert nbits == 8 || nbits == 16 "unsupported nbits ($nbits)"
+  eltype = nbits == 8 ? Complex{Int8} : Complex{Int16}
+  Array{eltype, ndims}
+end
 
 """
     chanfreq(grh::GuppiRaw.Header, chan::Real)::Float64
