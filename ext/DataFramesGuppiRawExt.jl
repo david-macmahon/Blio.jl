@@ -3,13 +3,14 @@ module DataFramesGuppiRawExt
 import Blio.GuppiRaw.Header
 
 if isdefined(Base, :get_extension)
-    import DataFrames: DataFrame, Tables, push!
+    import DataFrames: DataFrame, Tables, push!, select!
 else
-    import ..DataFrames: DataFrame, Tables, push!
+    import ..DataFrames: DataFrame, Tables, push!, select!
 end
 
 function DataFrame(v::Vector{Header})
-    DataFrame(Tables.dictcolumntable(v))
+    df = DataFrame(Tables.dictcolumntable(v))
+    select!(df, sort(names(df)))
 end
 
 function push!(df::DataFrame, grh::Header)
