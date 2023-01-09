@@ -9,10 +9,10 @@ See also:
 """
 module Blio
 
-include("GuppiRaw.jl")
-include("Filterbank.jl")
-
 export GuppiRaw
 export Filterbank
+
+include("GuppiRaw.jl")
+include("Filterbank.jl")
 
 end # module

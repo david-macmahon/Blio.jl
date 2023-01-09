@@ -1,21 +1,13 @@
-export blocksize
-export chanfreq
-export chanfreqs
-export getntime
-export resize_hdu
-
-import Base.size
-
 """
 Module for interacting with GuppiRaw files.
 
 See also:
 [`GuppiRaw.Header`](@ref),
 [`GuppiRaw.HeaderDataUnit`](@ref),
-[`read!(io::IO, grh::GuppiRaw.Header)`](@ref),
-[`read(io::IO, ::Type{GuppiRaw.Header})`](@ref),
-[`write(io::IO, grh::GuppiRaw.Header)`](@ref),
-[`Array(grh::GuppiRaw.Header, nchan::Int=0)`](@ref)
+[`Base.read!(io::IO, grh::GuppiRaw.Header)`](@ref),
+[`Base.read(io::IO, ::Type{GuppiRaw.Header})`](@ref),
+[`Base.write(io::IO, grh::GuppiRaw.Header)`](@ref),
+[`Base.Array(grh::GuppiRaw.Header, nchan::Int=0)`](@ref)
 [`blocksize(GuppiRaw.Header)`](@ref),
 [`chanfreq(grh::GuppiRaw.Header, chan::Real)`](@ref)
 [`chanfreqs(grh::GuppiRaw.Header, chans::AbstractRange)`](@ref)
@@ -24,10 +16,11 @@ See also:
 """
 module GuppiRaw
 
-export Header
-
 using Printf
 using OrderedCollections
+
+import Base: Array, copy, delete!, empty!, get, getindex, getproperty, iterate,
+             length, propertynames, read, read!, setindex!, size, write
 
 # Header record size
 const HEADER_REC_SIZE = 80
@@ -62,51 +55,51 @@ struct Header <: AbstractDict{Symbol, Any}
   end
 end
 
-function Base.setindex!(h::Header, val::Any, key::Symbol)
+function setindex!(h::Header, val::Any, key::Symbol)
   setindex!(getfield(h, :dict), val, key)
 end
 
-function Base.setindex!(h::Header, val::Any, key::AbstractString)
+function setindex!(h::Header, val::Any, key::AbstractString)
   setindex!(h, val, Symbol(lowercase(key)))
 end
 
-function Base.getindex(h::Header, key::Symbol)
+function getindex(h::Header, key::Symbol)
   getindex(getfield(h, :dict), key)
 end
 
-function Base.getindex(h::Header, key::AbstractString)
+function getindex(h::Header, key::AbstractString)
   getindex(h, Symbol(lowercase(key)))
 end
 
-function Base.get(h::Header, key::Symbol, default=nothing)
+function get(h::Header, key::Symbol, default=nothing)
   get(getfield(h, :dict), key, default)
 end
 
-function Base.get(h::Header, key::AbstractString, default=nothing)
+function get(h::Header, key::AbstractString, default=nothing)
   get(h, Symbol(lowercase(key)), default)
 end
 
-function Base.getproperty(h::Header, sym::Symbol)
+function getproperty(h::Header, sym::Symbol)
   get(h, sym, nothing)
 end
 
-function Base.length(h::Header)
+function length(h::Header)
   length(getfield(h, :dict))
 end
 
-function Base.propertynames(h::Header)
+function propertynames(h::Header)
   Tuple(keys(getfield(h, :dict)))
 end
 
-function Base.iterate(h::Header, state...)
+function iterate(h::Header, state...)
   iterate(getfield(h, :dict), state...)
 end
 
-function Base.empty!(h::Header)
+function empty!(h::Header)
   empty!(getfield(h, :dict))
 end
 
-function Base.delete!(h::Header, key::Symbol)
+function delete!(h::Header, key::Symbol)
   delete!(getfield(h, :dict), key)
 end
 
@@ -128,7 +121,7 @@ end
 Returns the number of channels per antenna (i.e. `obsnchan ÷ nants`).
 Missing `nants` implies `nants == 1`.
 """
-function antnchan(grh::GuppiRaw.Header)::Int
+function antnchan(grh::Header)::Int
   @assert haskey(grh, :obsnchan) "header has no obsnchan field"
   obsnants = get(grh, :nants, 1)
   @assert typeof(obsnants) <: Int
@@ -155,9 +148,7 @@ be skipped after the header such that the file position will be a multiple of
 following the header.  If reading a file of concatenated headers (i.e. without
 a data block after each header), use `skip_padding=false`.
 """
-function Base.read!(io::IO, grh::GuppiRaw.Header;
-                    skip_padding::Bool=true
-                   )::Bool
+function read!(io::IO, grh::Header; skip_padding::Bool=true)::Bool
   # Get buf from Header
   buf = getfield(grh, :buf)
   @assert size(buf, 1) == HEADER_REC_SIZE
@@ -216,7 +207,7 @@ end
 Create a `GuppiRaw::Header` object, call `read!()` to populate it, then return
 it.
 """
-function Base.read(io::IO, ::Type{Header}; skip_padding::Bool=true)::Header
+function read(io::IO, ::Type{Header}; skip_padding::Bool=true)::Header
   grh = Header()
   read!(io, grh, skip_padding=skip_padding)
   return grh
@@ -265,9 +256,7 @@ Write `grh` as a GUPPI header to `io`.  If `skip_padding` is true and
 `grh[:directio]` is non-zero, padding bytes will be written after the header
 such that the file position will be a multiple of 512 bytes.
 """
-function Base.write(io::IO, grh::GuppiRaw.Header;
-                    skip_padding::Bool=true
-                   )
+function write(io::IO, grh::Header; skip_padding::Bool=true)
   bytes_written = 0
 
   for (k,v) in grh
@@ -314,7 +303,7 @@ function HeaderDataUnit(grh::Header=Header())::HeaderDataUnit
 end
 
 # Show HDUs compactly
-Base.show(io::IO, hdu::HeaderDataUnit) = print(io,
+show(io::IO, hdu::HeaderDataUnit) = print(io,
   "GuppiRaw.HeaderDataUnit(hdr: ", length(hdu.hdr), " items, ",
                          "data: ", typeof(hdu.data), size(hdu.data), ")"
 )
@@ -337,7 +326,7 @@ If `NANTS` is greater than 1 and `nchan` is a multiple of `OBSNCHAN/NANTS`,
 then the returned array will be dimensioned as [npol, ntime, obsnchan/nants,
 nchan*nants/obschan] (i.e. it will have an extra antenna dimension).
 """
-function Base.Array(grh::Header, nchan::Int=0)::RawArray
+function Array(grh::Header, nchan::Int=0)::RawArray
   @assert haskey(grh, :obsnchan) "header has no obsnchan field"
 
   obsnants = get(grh, :nants, 1)
@@ -382,7 +371,6 @@ function Base.Array(grh::Header, nchan::Int=0)::RawArray
   Array{Complex{eltype}}(undef, dims)
 end
 
-end # module GuppiRaw
 
 """
    blocksize(grh::GuppiRaw.Header[, dim])
@@ -397,7 +385,7 @@ corresponding to `(npol, ntime, obsnchan)`.
 If `NANTS` is greater than 1, the returned tuple will have four elements
 corresponding to `(npol, ntime, obsnchan÷nants, nants)`.
 """
-function blocksize(grh::GuppiRaw.Header)
+function blocksize(grh::Header)
   @assert haskey(grh, :obsnchan) "header has no obsnchan field"
 
   obsnants = get(grh, :nants, 1)
@@ -415,11 +403,9 @@ function blocksize(grh::GuppiRaw.Header)
   dims
 end
 
-blocksize(grh::GuppiRaw.Header, dim) = blocksize(grh)[dim]
+blocksize(grh::Header, dim) = blocksize(grh)[dim]
 
-@deprecate size(grh::GuppiRaw.Header) blocksize(grh)
 
-@deprecate size(grh::GuppiRaw.Header, dim) blocksize(grh, dim)
 
 """
     chanfreq(grh::GuppiRaw.Header, chan::Real)::Float64
@@ -428,7 +414,7 @@ Returns the center frequency of the channel given by `chan` based on the
 `obsfreq`, `chan_bw`, `obsnchan`, and `nants` fields of `grh`.  The first
 channel in the file is considered to be channel 1 (i.e. `chan` is one-based).
 """
-function chanfreq(grh::GuppiRaw.Header, chan::Real)::Float64
+function chanfreq(grh::Header, chan::Real)::Float64
   @assert haskey(grh, :obsfreq) "header has no obsfreq field"
   @assert haskey(grh, :chan_bw) "header has no chan_bw field"
 
@@ -451,15 +437,14 @@ channel in the file is considered to be channel 1 (i.e. `chans` are
 one-based).  Frequencies for channels beyond `obsnchan/nants` will be
 returned if requested, but they are not valid.
 """
-function chanfreqs(grh::GuppiRaw.Header)::AbstractRange
+function chanfreqs(grh::Header)::AbstractRange
   # antnchan is number of channels per antenna
   antnchan = GuppiRaw.antnchan(grh)
 
   range(chanfreq(grh, 1), step=grh[:chan_bw], length=antnchan)
 end
 
-function chanfreqs(grh::GuppiRaw.Header,
-                        chans::AbstractRange)::AbstractRange
+function chanfreqs(grh::Header, chans::AbstractRange)::AbstractRange
   range(chanfreq(grh, first(chans)),
         step=grh[:chan_bw]*step(chans),
         length=length(chans)
@@ -471,7 +456,7 @@ end
 
 Return the number of time samples per block.
 """
-function getntime(grh::GuppiRaw.Header)::Int
+function getntime(grh::Header)::Int
   @assert haskey(grh, :blocsize) "header has no blocsize field"
   @assert haskey(grh, :obsnchan) "header has no obsnchan field"
 
@@ -485,8 +470,6 @@ function getntime(grh::GuppiRaw.Header)::Int
   return nt
 end
 
-@deprecate ntime(grh) getntime(grh)
-
 """
     resize_hdu(hdu::GuppiRaw.HeaderDataUnit)::GuppiRaw.HeaderDataUnit
 
@@ -496,7 +479,7 @@ typed and sized then `hdu` is returned, otherwise a new `HeaderDataUnit` is
 returned with the same `Header` object as `hdu.hdr` but a new `data` Array that
 is appropriately typed and sized according to `hdu.hdr`.
 """
-function resize_hdu(hdu::GuppiRaw.HeaderDataUnit)::GuppiRaw.HeaderDataUnit
+function resize_hdu(hdu::HeaderDataUnit)::HeaderDataUnit
   nbits = get(hdu.hdr, :nbits, 8)
   @assert nbits == 8 || nbits == 16 "unsupported nbits ($nbits)"
   reimtype = nbits == 8 ? Int8 : Int16
@@ -505,12 +488,14 @@ function resize_hdu(hdu::GuppiRaw.HeaderDataUnit)::GuppiRaw.HeaderDataUnit
     if isempty(hdu.data) && eltype(hdu.data) == Complex{Int8}
       return hdu
     else
-      return GuppiRaw.HeaderDataUnit(hdu.hdr, Complex{Int8}[])
+      return HeaderDataUnit(hdu.hdr, Complex{Int8}[])
     end
   elseif (size(hdu.hdr) == size(hdu.data)
       &&  eltype(hdu.data) == Complex{reimtype})
     return hdu
   end
 
-  GuppiRaw.HeaderDataUnit(hdu.hdr, Array(hdu.hdr))
+  HeaderDataUnit(hdu.hdr, Array(hdu.hdr))
 end
+
+end # module GuppiRaw

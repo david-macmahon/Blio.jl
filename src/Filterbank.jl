@@ -1,32 +1,28 @@
-import Mmap
-
-export maskdc!
-export chanfreq
-export chanfreqs
-
-# This is a type alias for possible Filterbank data Arrays
-FilterbankArray = Union{Array{Int8},Array{Float32},Base.ReinterpretArray}
-
 """
 Module for interacting with Filterbank files.
 
 See also:
 [`Filterbank.Header`](@ref),
-[`read!(io::IO, fbh::Filterbank.Header)`](@ref),
-[`read(io::IO, ::Type{Filterbank.Header})`](@ref),
-[`write(io::IO, fbh::Filterbank.Header)`](@ref),
-[`size(fbh::Filterbank.Header[, dim]; <kwargs>)`](@ref),
-[`Array(fbh::Filterbank.Header, nspec::Int=1; <kwargs>)`](@ref)
+[`Base.read!(io::IO, fbh::Filterbank.Header)`](@ref),
+[`Base.read(io::IO, ::Type{Filterbank.Header})`](@ref),
+[`Base.write(io::IO, fbh::Filterbank.Header)`](@ref),
+[`Base.size(fbh::Filterbank.Header[, dim]; <kwargs>)`](@ref),
+[`Base.Array(fbh::Filterbank.Header, nspec::Int=1; <kwargs>)`](@ref)
 [`chanfreq(fbh::Filterbank.Header, chan::Real)`](@ref)
 [`chanfreqs(fbh::Filterbank.Header, chans::AbstractRange)`](@ref)
 [`maskdc!(a::Array{Number}, ncoarse::Integer)`](@ref)
 """
 module Filterbank
 
-export Header
-
-import Blio
 using OrderedCollections
+import Mmap
+
+import Base: Array, delete!, empty!, get, getindex, getproperty, iterate,
+             length, propertynames, read!, setindex!, size, write,
+             ReinterpretArray
+
+# This is a type alias for possible Filterbank data Arrays
+FilterbankArray = Union{Array{Int8}, Array{Float32}, ReinterpretArray}
 
 """
 Type used to hold a Filterbank header.  Acts very much like an OrderedDict with
@@ -61,63 +57,61 @@ end
 Return a Filterbank.Header object and a memory mapped data Array for the data
 in `fb`.
 """
-function mmap(fb::IOStream)::Tuple{Filterbank.Header, Blio.FilterbankArray}
-  fbh = read(fb, Filterbank.Header)
-  data = Blio.mmap(fb, fbh)
+function mmap(fb::IOStream)::Tuple{Header, FilterbankArray}
+  fbh = read(fb, Header)
+  data = mmap(fb, fbh)
   fbh, data
 end
 
-function mmap(fbname::AbstractString)::Tuple{Filterbank.Header, Blio.FilterbankArray}
+function mmap(fbname::AbstractString)::Tuple{Header, FilterbankArray}
   open(mmap, fbname)
 end
 
-end # module Filterbank
-
-function Base.setindex!(h::Filterbank.Header, val::Any, key::Symbol)
+function setindex!(h::Header, val::Any, key::Symbol)
   setindex!(getfield(h, :dict), val, key)
 end
 
-function Base.setindex!(h::Filterbank.Header, val::Any, key::AbstractString)
+function setindex!(h::Header, val::Any, key::AbstractString)
   setindex!(h, val, Symbol(lowercase(key)))
 end
 
-function Base.getindex(h::Filterbank.Header, key::Symbol)
+function getindex(h::Header, key::Symbol)
   getindex(getfield(h, :dict), key)
 end
 
-function Base.getindex(h::Filterbank.Header, key::AbstractString)
+function getindex(h::Header, key::AbstractString)
   getindex(h, Symbol(lowercase(key)))
 end
 
-function Base.get(h::Filterbank.Header, key::Symbol, default=nothing)
+function get(h::Header, key::Symbol, default=nothing)
   get(getfield(h, :dict), key, default)
 end
 
-function Base.get(h::Filterbank.Header, key::AbstractString, default=nothing)
+function get(h::Header, key::AbstractString, default=nothing)
   get(h, Symbol(lowercase(key)), default)
 end
 
-function Base.getproperty(h::Filterbank.Header, sym::Symbol)
+function getproperty(h::Header, sym::Symbol)
   get(h, sym, nothing)
 end
 
-function Base.length(h::Filterbank.Header)
+function length(h::Header)
   length(getfield(h, :dict))
 end
 
-function Base.propertynames(h::Filterbank.Header)
+function propertynames(h::Header)
   Tuple(keys(getfield(h, :dict)))
 end
 
-function Base.iterate(h::Filterbank.Header, state...)
+function iterate(h::Header, state...)
   iterate(getfield(h, :dict), state...)
 end
 
-function Base.empty!(h::Filterbank.Header)
+function empty!(h::Header)
   empty!(getfield(h, :dict))
 end
 
-function Base.delete!(h::Filterbank.Header, key::Symbol)
+function delete!(h::Header, key::Symbol)
   delete!(getfield(h, :dict), key)
 end
 
@@ -363,7 +357,7 @@ The calculated `:nsamps` field should match any `:nsamples` field in the
 header.  The `:nsamples` field is an optional header, but it is official so
 using that field for the derived "convenience" value is not desirable.
 """
-function Base.read!(io::IO, fbh::Filterbank.Header)::Filterbank.Header
+function read!(io::IO, fbh::Header)::Header
   # If position is not 0 then save current position, rewind and (re-)read the
   # (possibly changed?) header.
   save_pos = position(io)
@@ -413,7 +407,7 @@ end
 
 Create a `Filterbank::Header` object, then call `read!()` to populate it.
 """
-Base.read(io::IO, ::Type{Filterbank.Header}) = read!(io, Filterbank.Header())
+read(io::IO, ::Type{Header}) = read!(io, Header())
 
 """
     write(io::IO, fbh::Filterbank.Header)
@@ -421,7 +415,7 @@ Base.read(io::IO, ::Type{Filterbank.Header}) = read!(io, Filterbank.Header())
 Seeks to the beginning of io and writes a Filterbank header from the contents
 of `fbh`.
 """
-function Base.write(io::IO, fbh::Filterbank.Header)
+function write(io::IO, fbh::Header)
   seekstart(io)
 
   write_header_item(io, :HEADER_START)
@@ -449,10 +443,7 @@ dimension.
   `fbh.nchan÷nants` and `nants` dimensions.  It is an error if `fbh.nchans` is
   not a multiple of `nants`.
 """
-function Base.size(fbh::Filterbank.Header;
-                   dropdims::Bool=false,
-                   nants::Integer=1
-                  )
+function size(fbh::Header; dropdims::Bool=false, nants::Integer=1)
   nchans = get(fbh, :nchans, 0)
   @assert nchans > 0 "invalid nchans ($nchans)"
   @assert nants > 0 "invalid nants ($nants)"
@@ -483,10 +474,10 @@ function Base.size(fbh::Filterbank.Header;
   dims
 end
 
-Base.size(fbh::Filterbank.Header, dim;
-          dropdims::Bool=false,
-          nants::Integer=1
-         ) = size(fbh; dropdims=dropdims, nants=nants)[dim]
+size(fbh::Header, dim;
+     dropdims::Bool=false,
+     nants::Integer=1
+    ) = size(fbh; dropdims=dropdims, nants=nants)[dim]
 
 """
     mmap(fb::Union{IOStream,AbstractString})::Tuple{Filterbank.Header, Array}
@@ -499,7 +490,7 @@ Otherwise, a Filterbank.Header object eill be created from the contents of
 `fb` and it will be returned along with the memory mapped data Array as a
 `Tuple{Filterbank.Header, Array}`.
 """
-function mmap(fb::IOStream, fbh::Filterbank.Header)::FilterbankArray
+function mmap(fb::IOStream, fbh::Header)::FilterbankArray
   dims = size(fbh)
   # size() enforces nbits == 8 or nbits == 32
   if fbh[:nbits] == 8
@@ -546,11 +537,11 @@ dimensions will be eliminated).
   not a multiple of `nants`.  The Array will be dimensioned as
   (`fbh.nchans÷nants`, `nants`, `fbh.nifs`, `nsamps`).
 """
-function Base.Array(fbh::Filterbank.Header, nsamps::Integer=0;
-                    dropdims::Bool=false,
-                    maxmem::Int64=1<<32,
-                    nants::Integer=1
-                   )::FilterbankArray
+function Array(fbh::Header, nsamps::Integer=0;
+               dropdims::Bool=false,
+               maxmem::Int64=1<<32,
+               nants::Integer=1
+              )::FilterbankArray
   # Get size of data
   nchans, nifs, max_nsamps = size(fbh)
 
@@ -619,7 +610,7 @@ Returns the center frequency of the channel given by `chan` based on the `fch1`
 and `foff` fields of `fbh`.  The first channel in the file is considered to be
 channel 1 (i.e. `chan` is one-based).
 """
-function chanfreq(fbh::Filterbank.Header, chan::Real)::Float64
+function chanfreq(fbh::Header, chan::Real)::Float64
   @assert haskey(fbh, :fch1) "header has no fch1 field"
   @assert haskey(fbh, :foff) "header has no foff field"
   fbh[:fch1] + fbh[:foff] * (chan-1)
@@ -634,17 +625,18 @@ Returns the center frequencies of the channels given by `chans` based on the
 channel in the file is considered to be channel 1 (i.e.  `chans` are
 one-based).
 """
-function chanfreqs(fbh::Filterbank.Header)::AbstractRange
+function chanfreqs(fbh::Header)::AbstractRange
   @assert haskey(fbh, :fch1) "header has no fch1 field"
   @assert haskey(fbh, :foff) "header has no foff field"
   @assert haskey(fbh, :nchans) "header has no nchans field"
   range(fbh[:fch1], step=fbh[:foff], length=fbh[:nchans])
 end
 
-function chanfreqs(fbh::Filterbank.Header,
-                        chans::AbstractRange)::AbstractRange
+function chanfreqs(fbh::Header, chans::AbstractRange)::AbstractRange
   range(chanfreq(fbh, first(chans)),
         step=fbh[:fieldoffset]*step(chans),
         length=length(chans)
        )
 end
+
+end # module Filterbank
