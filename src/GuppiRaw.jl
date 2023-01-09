@@ -4,6 +4,7 @@ Module for interacting with GuppiRaw files.
 See also:
 [`GuppiRaw.Header`](@ref),
 [`GuppiRaw.HeaderDataUnit`](@ref),
+[`GuppiRaw.load(io::IO; headers=[], datablocks=[]`](@ref),
 [`Base.read!(io::IO, grh::GuppiRaw.Header)`](@ref),
 [`Base.read(io::IO, ::Type{GuppiRaw.Header})`](@ref),
 [`Base.write(io::IO, grh::GuppiRaw.Header)`](@ref),
@@ -19,6 +20,7 @@ module GuppiRaw
 
 using Printf
 using OrderedCollections
+import Mmap: mmap
 
 import Base: Array, copy, delete!, empty!, get, getindex, getproperty, iterate,
              length, propertynames, read, read!, setindex!, size, write
@@ -54,6 +56,15 @@ struct Header <: AbstractDict{Symbol, Any}
     # Initialize fields and return
     new(dict, buf)
   end
+
+  # Inner "copy constructor"
+  function Header(orig::Header)
+    new(copy(getfield(orig, :dict)), copy(getfield(orig, :buf)))
+  end
+end
+
+function copy(grh::Header)
+  Header(grh)
 end
 
 function setindex!(h::Header, val::Any, key::Symbol)
@@ -372,6 +383,48 @@ function Array(grh::Header, nchan::Int=0)::RawArray
   Array{Complex{eltype}}(undef, dims)
 end
 
+"""
+  load(io::IO; headers=Header[], datablocks=Array{<:Complex{<:Integer}}[])
+
+Load GUPPI RAW file from current position of `io` to end of file.  `io` must be
+positioned at the start of a GUPPI RAW header.  The headers are read as
+GuppiRaw.Header objects and `push!`-ed onto `headers`.  The data blocks are
+`mmap`-ed as Arrays and `push!`-ed onto `datablocks`.  `headers` and
+`datablocks` default to empty Vectors, but any object onto which
+`GuppiRaw.Header`s or `Array`s can be pushed may be given.
+
+Returns the tuple `(headers, datablocks)`.
+"""
+function load(io::IO; headers=Header[], datablocks=Array{<:Complex{<:Integer}}[])
+  grh = Header()
+  while read!(io, grh)
+    push!(headers, copy(grh))
+    push!(datablocks, mmap(io, blocktype(grh), blocksize(grh), position(io)))
+    skip(io, grh[:blocsize])
+  end
+  (headers, datablocks)
+end
+
+"""
+  load(fn::AbstractString; headers=Header[], datablocks=Array{<:Complex{<:Integer}}[])
+
+Load GUPPI RAW file given by `fn`.  The headers are read as GuppiRaw.Header
+objects and `push!`-ed onto `headers`.  The data blocks are `mmap`-ed as Arrays
+and `push!`-ed onto `datablocks`.  `headers` and `datablocks` default to empty
+Vectors, but any object onto which `GuppiRaw.Header`s or `Array`s can be pushed
+may be given.
+
+The file named by `fn` is closed before this function returns, but the OS will
+hold the file open until the mmap's datablcoks are garbage collected.
+
+Returns the tuple `(headers, datablocks)`.
+"""
+function load(rawname::AbstractString;
+              headers=Header[], datablocks=Array{<:Complex{<:Integer}}[])
+  open(rawname) do io
+    load(io; headers, datablocks)
+  end
+end
 
 """
    blocksize(grh::GuppiRaw.Header[, dim])
