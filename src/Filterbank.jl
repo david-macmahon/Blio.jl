@@ -6,10 +6,10 @@ See also:
 [`Base.read!(io::IO, fbh::Filterbank.Header)`](@ref),
 [`Base.read(io::IO, ::Type{Filterbank.Header})`](@ref),
 [`Base.write(io::IO, fbh::Filterbank.Header)`](@ref),
-[`Base.size(fbh::Filterbank.Header[, dim]; <kwargs>)`](@ref),
 [`Base.Array(fbh::Filterbank.Header, nspec::Int=1; <kwargs>)`](@ref)
 [`chanfreq(fbh::Filterbank.Header, chan::Real)`](@ref)
 [`chanfreqs(fbh::Filterbank.Header, chans::AbstractRange)`](@ref)
+[`datasize(fbh::Filterbank.Header[, dim]; <kwargs>)`](@ref),
 [`maskdc!(a::Array{Number}, ncoarse::Integer)`](@ref)
 """
 module Filterbank
@@ -431,11 +431,12 @@ function write(io::IO, fbh::Header)
 end
 
 """
-    size(fbh::Filterbank.Header[, dim]; <kwargs>)
+    datasize(fbh::Filterbank.Header[, dim]; <kwargs>)
 
 Return a tuple containing the dimensions of the data described by `fbh`.
 Optionally you can specify a dimension to just get the length of that
-dimension.
+dimension.  This is not to be confused with `fbh[:data_size]` which is the byte
+size of data portion of the Filterbank file.
 
 # Keyword Arguments
 - `dropdims::Bool=false`: drop singleton dimensions
@@ -443,7 +444,7 @@ dimension.
   `fbh.nchan÷nants` and `nants` dimensions.  It is an error if `fbh.nchans` is
   not a multiple of `nants`.
 """
-function size(fbh::Header; dropdims::Bool=false, nants::Integer=1)
+function datasize(fbh::Header; dropdims::Bool=false, nants::Integer=1)
   nchans = get(fbh, :nchans, 0)
   @assert nchans > 0 "invalid nchans ($nchans)"
   @assert nants > 0 "invalid nants ($nants)"
@@ -474,10 +475,10 @@ function size(fbh::Header; dropdims::Bool=false, nants::Integer=1)
   dims
 end
 
-size(fbh::Header, dim;
+datasize(fbh::Header, dim;
      dropdims::Bool=false,
      nants::Integer=1
-    ) = size(fbh; dropdims=dropdims, nants=nants)[dim]
+    ) = datasize(fbh; dropdims=dropdims, nants=nants)[dim]
 
 """
     mmap(fb::Union{IOStream,AbstractString})::Tuple{Filterbank.Header, Array}
@@ -491,8 +492,8 @@ Otherwise, a Filterbank.Header object eill be created from the contents of
 `Tuple{Filterbank.Header, Array}`.
 """
 function mmap(fb::IOStream, fbh::Header)::FilterbankArray
-  dims = size(fbh)
-  # size() enforces nbits == 8 or nbits == 32
+  dims = datasize(fbh)
+  # datasize() enforces nbits == 8 or nbits == 32
   if fbh[:nbits] == 8
     eltype = Int8
   else
@@ -543,9 +544,9 @@ function Array(fbh::Header, nsamps::Integer=0;
                nants::Integer=1
               )::FilterbankArray
   # Get size of data
-  nchans, nifs, max_nsamps = size(fbh)
+  nchans, nifs, max_nsamps = datasize(fbh)
 
-  # Only nbits 8 or 32 are supported, validated in `size()`,
+  # Only nbits 8 or 32 are supported, validated in `datasize()`,
   # so divide by 8 isn't a problem
   nbits = get(fbh, :nbits, 32)
   sample_size = get(fbh, :sample_size, nchans * nifs * nbits ÷ 8)
