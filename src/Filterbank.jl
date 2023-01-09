@@ -431,12 +431,15 @@ function write(io::IO, fbh::Header)
 end
 
 """
-    datasize(fbh::Filterbank.Header[, dim]; <kwargs>)
+    datasize(fbh[, dim]; <kwargs>)
 
 Return a tuple containing the dimensions of the data described by `fbh`.
 Optionally you can specify a dimension to just get the length of that
 dimension.  This is not to be confused with `fbh[:data_size]` which is the byte
-size of data portion of the Filterbank file.
+size of the data portion of the Filterbank file.
+
+`fbh` can be any Dict-like object that supports `haskey` and `get`, such as
+`Filterbank.Header`, `AbstractDict`, `NamedTuple`, `DataFrameRow`, etc.
 
 # Keyword Arguments
 - `dropdims::Bool=false`: drop singleton dimensions
@@ -475,7 +478,7 @@ function datasize(fbh::Header; dropdims::Bool=false, nants::Integer=1)
   dims
 end
 
-datasize(fbh::Header, dim;
+datasize(fbh, dim;
      dropdims::Bool=false,
      nants::Integer=1
     ) = datasize(fbh; dropdims=dropdims, nants=nants)[dim]
@@ -605,35 +608,40 @@ function maskdc!(fbdata::FilterbankArray, ncoarse::Integer)::Nothing
 end
 
 """
-    chanfreq(fbh::Filterbank.Header, chan::Real)::Float64
+    chanfreq(fbh, chan::Real)::Float64
 
 Returns the center frequency of the channel given by `chan` based on the `fch1`
 and `foff` fields of `fbh`.  The first channel in the file is considered to be
 channel 1 (i.e. `chan` is one-based).
+
+`fbh` can be any Dict-like object that supports `haskey` and `get`, such as
+`Filterbank.Header`, `AbstractDict`, `NamedTuple`, `DataFrameRow`, etc.
 """
-function chanfreq(fbh::Header, chan::Real)::Float64
+function chanfreq(fbh, chan::Real)::Float64
   @assert haskey(fbh, :fch1) "header has no fch1 field"
   @assert haskey(fbh, :foff) "header has no foff field"
   fbh[:fch1] + fbh[:foff] * (chan-1)
 end
 
 """
-    chanfreqs(fbh::Filterbank.Header,
-              chans::AbstractRange=1:fbh.nchans)::AbstractRange
+    chanfreqs(fbh, chans::AbstractRange=1:fbh.nchans)::AbstractRange
 
 Returns the center frequencies of the channels given by `chans` based on the
 `fch1`, `foff`, and (in the default case) `nchans` fields of `fbh`.  The first
 channel in the file is considered to be channel 1 (i.e.  `chans` are
 one-based).
+
+`fbh` can be any Dict-like object that supports `haskey` and `get`, such as
+`Filterbank.Header`, `AbstractDict`, `NamedTuple`, `DataFrameRow`, etc.
 """
-function chanfreqs(fbh::Header)::AbstractRange
+function chanfreqs(fbh)::AbstractRange
   @assert haskey(fbh, :fch1) "header has no fch1 field"
   @assert haskey(fbh, :foff) "header has no foff field"
   @assert haskey(fbh, :nchans) "header has no nchans field"
   range(fbh[:fch1], step=fbh[:foff], length=fbh[:nchans])
 end
 
-function chanfreqs(fbh::Header, chans::AbstractRange)::AbstractRange
+function chanfreqs(fbh, chans::AbstractRange)::AbstractRange
   range(chanfreq(fbh, first(chans)),
         step=fbh[:fieldoffset]*step(chans),
         length=length(chans)

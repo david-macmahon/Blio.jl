@@ -130,10 +130,14 @@ end
 end
 
 """
+    antnchan(grh)::Int
 Returns the number of channels per antenna (i.e. `obsnchan ÷ nants`).
 Missing `nants` implies `nants == 1`.
+
+`grh` can be any Dict-like object that supports `haskey` and `get`, such as
+`GuppiRaw.Header`, `AbstractDict`, `NamedTuple`, `DataFrameRow`, etc.
 """
-function antnchan(grh::Header)::Int
+function antnchan(grh)::Int
   @assert haskey(grh, :obsnchan) "header has no obsnchan field"
   obsnants = get(grh, :nants, 1)
   @assert typeof(obsnants) <: Int
@@ -427,7 +431,7 @@ function load(rawname::AbstractString;
 end
 
 """
-   blocksize(grh::GuppiRaw.Header[, dim])
+   blocksize(grh[, dim])
 
 Return a tuple containing the dimensions of the data block described by `grh`.
 Optionally you can specify a dimension to just get the length of that
@@ -438,8 +442,11 @@ corresponding to `(npol, ntime, obsnchan)`.
 
 If `NANTS` is greater than 1, the returned tuple will have four elements
 corresponding to `(npol, ntime, obsnchan÷nants, nants)`.
+
+`grh` can be any Dict-like object that supports `haskey` and `get`, such as
+`GuppiRaw.Header`, `AbstractDict`, `NamedTuple`, `DataFrameRow`, etc.
 """
-function blocksize(grh::Header)
+function blocksize(grh)
   @assert haskey(grh, :obsnchan) "header has no obsnchan field"
 
   obsnants = get(grh, :nants, 1)
@@ -460,7 +467,7 @@ end
 blocksize(grh::Header, dim) = blocksize(grh)[dim]
 
 """
-   blocktype(grh::GuppiRaw.Header)
+   blocktype(grh)
 
 Return the type of an Array that corresponds to the data in the datablock
 described by `grh`.  This will typically be one of the following types:
@@ -469,8 +476,11 @@ described by `grh`.  This will typically be one of the following types:
 - `Array{Complex{Int8}, 4}` when `NBITS=8` and `NANTS>1`
 - `Array{Complex{Int16}, 3}` when `NBITS=16` and `NANTS=1`
 - `Array{Complex{Int16}, 4}` when `NBITS=16` and `NANTS>1`
+
+`grh` can be any Dict-like object that supports `haskey` and `get`, such as
+`GuppiRaw.Header`, `AbstractDict`, `NamedTuple`, `DataFrameRow`, etc.
 """
-function blocktype(grh::Header)
+function blocktype(grh)
   ndims = length(blocksize(grh))
   nbits = get(grh, :nbits, 8)
   @assert nbits == 8 || nbits == 16 "unsupported nbits ($nbits)"
@@ -479,13 +489,16 @@ function blocktype(grh::Header)
 end
 
 """
-    chanfreq(grh::GuppiRaw.Header, chan::Real)::Float64
+    chanfreq(grh, chan::Real)::Float64
 
 Returns the center frequency of the channel given by `chan` based on the
 `obsfreq`, `chan_bw`, `obsnchan`, and `nants` fields of `grh`.  The first
 channel in the file is considered to be channel 1 (i.e. `chan` is one-based).
+
+`grh` can be any Dict-like object that supports `haskey` and `get`, such as
+`GuppiRaw.Header`, `AbstractDict`, `NamedTuple`, `DataFrameRow`, etc.
 """
-function chanfreq(grh::Header, chan::Real)::Float64
+function chanfreq(grh, chan::Real)::Float64
   @assert haskey(grh, :obsfreq) "header has no obsfreq field"
   @assert haskey(grh, :chan_bw) "header has no chan_bw field"
 
@@ -499,23 +512,25 @@ function chanfreq(grh::Header, chan::Real)::Float64
 end
 
 """
-    chanfreqs(grh::GuppiRaw.Header,
-              chans::AbstractRange=1:grh[:obsnchan]/grh[:nants])::AbstractRange
+    chanfreqs(grh, chans::AbstractRange=1:grh[:obsnchan]/grh[:nants])::AbstractRange
 
-Returns the center frequencies of the channels given by `chans` based on the
-`obsfreq`, `chan_bw`, `obsnchan`, and `nants` fields of `grh`.  The first
-channel in the file is considered to be channel 1 (i.e. `chans` are
-one-based).  Frequencies for channels beyond `obsnchan/nants` will be
-returned if requested, but they are not valid.
+Returns the center frequencies of the channels given by `chans` (or all channels
+if `chans` is not given) based on the `obsfreq`, `chan_bw`, `obsnchan`, and
+`nants` fields of `grh`.  The first channel in the file is considered to be
+channel 1 (i.e. `chans` are one-based).  Frequencies for channels beyond
+`obsnchan/nants` will be returned if requested, but they are not valid.
+
+`grh` can be any Dict-like object that supports `haskey` and `get`, such as
+`GuppiRaw.Header`, `AbstractDict`, `NamedTuple`, `DataFrameRow`, etc.
 """
-function chanfreqs(grh::Header)::AbstractRange
+function chanfreqs(grh)::AbstractRange
   # antnchan is number of channels per antenna
   antnchan = GuppiRaw.antnchan(grh)
 
   range(chanfreq(grh, 1), step=grh[:chan_bw], length=antnchan)
 end
 
-function chanfreqs(grh::Header, chans::AbstractRange)::AbstractRange
+function chanfreqs(grh, chans::AbstractRange)::AbstractRange
   range(chanfreq(grh, first(chans)),
         step=grh[:chan_bw]*step(chans),
         length=length(chans)
@@ -523,11 +538,14 @@ function chanfreqs(grh::Header, chans::AbstractRange)::AbstractRange
 end
 
 """
-    getntime(grh::GuppiRaw.Header)::Int
+    getntime(grh)::Int
 
 Return the number of time samples per block.
+
+`grh` can be any Dict-like object that supports `haskey` and `get`, such as
+`GuppiRaw.Header`, `AbstractDict`, `NamedTuple`, `DataFrameRow`, etc.
 """
-function getntime(grh::Header)::Int
+function getntime(grh)::Int
   @assert haskey(grh, :blocsize) "header has no blocsize field"
   @assert haskey(grh, :obsnchan) "header has no obsnchan field"
 
