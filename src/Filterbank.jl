@@ -18,7 +18,7 @@ using OrderedCollections
 import Mmap
 
 import Base: Array, delete!, empty!, get, getindex, getproperty, iterate,
-             length, propertynames, read!, setindex!, size, write,
+             length, propertynames, read, read!, setindex!, size, write,
              ReinterpretArray
 
 # This is a type alias for possible Filterbank data Arrays
