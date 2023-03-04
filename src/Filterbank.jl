@@ -490,9 +490,25 @@ datasize(fbh, dim;
 Create a memory mapped Array for the data in `fb`.  If Filterbank.Header `fbh`
 is passed, it will be used to determine Array type/size as well as the file
 position offset in `fb` and only the memory mapped data Array will be returned.
-Otherwise, a Filterbank.Header object eill be created from the contents of
+Otherwise, a Filterbank.Header object will be created from the contents of
 `fb` and it will be returned along with the memory mapped data Array as a
 `Tuple{Filterbank.Header, Array}`.
+
+The returned Array will be a `ReinterpretArray` if the file's data block is not
+type aligned.
+
+!!! note
+    The underlying file handle will not be closed until the Array returned by
+    `Mmap.mmap` is finalized.  This will happen in due course via garbage
+    collection, but it is also possible to call `finalize` to finalize the
+    object earlier.  Because `Filterbank.mmap` may return a ReinterpretArray,
+    one must finalize the parent of the array returned by `Filterbank.mmap` if
+    explicit finalization is desired.  Finalizing the parent will work in all
+    cases since a "regular" Array is its own parent.
+
+    !!! warning
+        After finaliztion, the data array is no longer valid.  Using the data
+        array after finalization will likely lead to segfaults!
 """
 function mmap(fb::IOStream, fbh::Header)::FilterbankArray
   dims = datasize(fbh)
