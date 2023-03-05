@@ -522,7 +522,7 @@ function mmap(fb::IOStream, fbh::Header)::FilterbankArray
   if fbh[:header_size] % sizeof(eltype) == 0
     data = Mmap.mmap(fb, Array{eltype, length(dims)}, dims, fbh[:header_size]; grow=false)
   else
-    @warn "data in $(fb.name) are not type aligned" _module=nothing _file=nothing
+    @debug "data in $(fb.name) are not type aligned" _module=nothing _file=nothing
     dims = (sizeof(eltype), dims...)
     data = reinterpret(reshape, eltype,
            Mmap.mmap(fb, Array{UInt8, length(dims)}, dims, fbh[:header_size]; grow=false))
