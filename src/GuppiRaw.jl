@@ -350,7 +350,7 @@ function Array(grh::Header, nchan::Int=0)::RawArray
   # antnchan is number of channels per antenna
   antnchan = GuppiRaw.antnchan(grh)
 
-  dims = size(grh)
+  dims = blocksize(grh)
 
   # If a specific number of channels are requested
   if nchan > 0
