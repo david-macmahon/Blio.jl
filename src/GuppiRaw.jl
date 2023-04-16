@@ -182,19 +182,30 @@ function read!(io::IO, grh::Header; skip_padding::Bool=true)::Bool
   @assert size(buf, 1) == HEADER_REC_SIZE
 
   # If not enough bytes remaining (EOF), return false
-  if filesize(io) - position(io) < sizeof(buf)
+  if filesize(io) - position(io) < HEADER_REC_SIZE
     return false
   end
 
-  # Read bytes into buf
-  read!(io, buf)
+  recnum = 0
+  while filesize(io) - position(io) >= HEADER_REC_SIZE && recnum < HEADER_MAX_RECS
+    # Read record into buf
+    recnum += 1
+    read!(io, @view buf[:,recnum])
+    buf[1:4, recnum] == END && break
+  end
 
-  # Find END record
-  endidx = findfirst(c->buf[1:4,c] == END, 1:size(buf,2))
-
-  if isnothing(endidx)
+  # Not found
+  if recnum == HEADER_MAX_RECS && buf[1:4, recnum] != END
     error("GUPPI RAW header not found in $(length(buf)) bytes")
   end
+
+  # EOF, return false
+  if recnum == 0 || buf[1:4, recnum] != END
+    return false
+  end
+
+  # Found END record
+  endidx = recnum
 
   # Make grh empty
   empty!(grh)
@@ -218,12 +229,12 @@ function read!(io::IO, grh::Header; skip_padding::Bool=true)::Bool
     grh[k] = v
   end
 
-  # Seek io to just after END rec
-  skip(io, HEADER_REC_SIZE*endidx - sizeof(buf))
-
   # If directio exists and is non-zero, seek past padding
   if skip_padding && get(grh, :directio, 0) != 0
-    skip(io, mod(-position(io), 512))
+    skipcount = mod(-position(io), 512)
+    if position(io) + skipcount <= filesize(io)
+      skip(io, skipcount)
+    end
   end
 
   return true
