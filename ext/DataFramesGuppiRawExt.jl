@@ -24,19 +24,31 @@ end
 
 Equivalent to `load(io; headers=DataFrame(), datablocks)` except that the
 returned `headers` DataFrame will have column names in sorted order.  Same for
-the method taking `fn::AbstractString`.
+the methods taking `fn::AbstractString` and
+`fns::AbstractVector{<:AbstractString}`.
 """
-function load(io::IO, ::Type{DataFrame}; datablocks=Array{<:Complex{<:Integer}}[])
-    headers = DataFrame()
+function load(io::IO, ::Type{DataFrame};
+              headers::DataFrame = DataFrame(),
+              datablocks=Array{<:Complex{<:Integer}}[])
     load(io; headers, datablocks)
     select!(headers, sort(names(headers))), datablocks
 end
 
 function load(rawname::AbstractString, ::Type{DataFrame};
+              headers::DataFrame = DataFrame(),
               datablocks=Array{<:Complex{<:Integer}}[])
   open(rawname) do io
-    load(io, DataFrame; datablocks)
+    load(io, DataFrame; headers, datablocks)
   end
+end
+
+function load(rawnames::AbstractVector{<:AbstractString}, ::Type{DataFrame};
+              headers::DataFrame = DataFrame(),
+              datablocks=Array{<:Complex{<:Integer}}[])
+  foreach(rawnames) do rawname
+    load(rawname, DataFrame; headers, datablocks)
+  end
+  (headers, datablocks)
 end
 
 end # module DataFramesGuppiRawExt

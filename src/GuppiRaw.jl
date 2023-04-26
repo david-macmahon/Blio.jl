@@ -419,7 +419,7 @@ Vectors, but any object onto which `GuppiRaw.Header`s or `Array`s can be pushed
 may be given.
 
 The file named by `fn` is closed before this function returns, but the OS will
-hold the file open until the mmap's datablcoks are garbage collected.
+hold the file open until the mmap's datablocks are garbage collected.
 
 Returns the tuple `(headers, datablocks)`.
 """
@@ -428,6 +428,24 @@ function load(rawname::AbstractString;
   open(rawname) do io
     load(io; headers, datablocks)
   end
+end
+
+"""
+  load(fns::AbstractVector{<:AbstractString}; headers=Header[], datablocks=Array{<:Complex{<:Integer}}[])
+
+Load GUPPI RAW files given by `fns`.  See `load(fn::AbstractString; ...)` for
+more details.
+
+Returns the tuple `(headers, datablocks)`.  The returned Vectors include all
+headers/data arrays from all files.
+"""
+function load(rawnames::AbstractVector{<:AbstractString};
+              headers=Header[], datablocks=Array{<:Complex{<:Integer}}[])
+  foreach(rawnames) do rawname
+    load(rawname; headers, datablocks)
+  end
+
+  (header, datablocks)
 end
 
 """
