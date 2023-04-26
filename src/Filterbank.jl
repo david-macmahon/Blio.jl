@@ -48,6 +48,9 @@ end
     @require DataFrames="a93c6f00-e57d-5684-b7b6-d8193f3e46c0" begin
       include("../ext/DataFramesFilterbankExt.jl")
     end
+    @require HDF5="f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f" begin
+      include("../ext/HDF5FilterbankExt.jl")
+    end
   end
 end
 
@@ -663,5 +666,8 @@ function chanfreqs(fbh, chans::AbstractRange)::AbstractRange
         length=length(chans)
        )
 end
+
+# A method is added to `fil2h5` if/when the HDF5 package is loaded
+function fil2h5 end
 
 end # module Filterbank
