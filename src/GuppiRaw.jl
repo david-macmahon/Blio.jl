@@ -63,6 +63,18 @@ struct Header <: AbstractDict{Symbol, Any}
   end
 end
 
+# Outer-constructor to create Header from Dict{Symbol,Any}, or NamedTuple.
+function Header(h::Union{AbstractDict{Symbol,Any}, NamedTuple})
+    grh = Header()
+    # If backend field exists, put it first
+    haskey(h, :backend)  && (grh[:backend] = h[:backend])
+    for (k,v) in zip(keys(h), values(h))
+        k === :backend && continue
+        grh[k] = v
+    end
+    grh
+end
+
 function copy(grh::Header)
   Header(grh)
 end
