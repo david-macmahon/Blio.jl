@@ -277,6 +277,11 @@ function write_header_item(io::IO, kw::Symbol, val::AbstractString)
   write(io, rpad(s, 80)[1:80])
 end
 
+function write_header_item(::IO, ::Symbol, ::Union{Nothing,Missing})
+  # Do not write any data for Nothing or Missing values
+  return 0
+end
+
 """
     write(io::IO, grh::GuppiRaw.Header; skip_padding::Bool=true)
 

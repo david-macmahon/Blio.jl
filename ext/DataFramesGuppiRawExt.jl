@@ -16,6 +16,8 @@ function Header(h::DataFrameRow)
     haskey(h, :backend)  && (grh[:backend] = h[:backend])
     for (k,v) in zip(keys(h), values(h))
         k === :backend && continue
+        v === nothing && continue
+        ismissing(v) && continue
         grh[k] = v
     end
     grh
