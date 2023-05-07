@@ -3,9 +3,9 @@ module HDF5FilterbankExt
 import Blio.Filterbank: Header, fil2h5
 
 if isdefined(Base, :get_extension)
-    import HDF5: h5open, attributes, create_dataset
+    import HDF5: File, Dataset, h5open, attributes, create_dataset
 else
-    import ..HDF5: h5open, attributes, create_dataset
+    import ..HDF5: File, Dataset, h5open, attributes, create_dataset
 end
 
 function fil2h5(fbname, h5name="$fbname.h5"; kwargs...)
@@ -37,4 +37,27 @@ function fil2h5(fbname, h5name="$fbname.h5"; kwargs...)
     h5name
 end
 
+# Create Filterbank.Header object from HDF5.Dataset
+function Header(h5ds::Dataset)::Header
+    fbh = Header()
+    attrs = attributes(h5ds)
+    for k in keys(attrs)
+        # Skip DIMENSION_LABELS, but keep all others (even non-SIGPROC ones)
+        k == "DIMENSION_LABELS" && continue
+        fbh[Symbol(k)] = attrs[k][]
+    end
+    # Add :data_size and :nsamps if not present
+    if !haskey(fbh, :data_size)
+        fbh[:data_size] = sizeof(eltype(h5ds)) * prod(size(h5ds))
+    end
+    if !haskey(fbh, :nsamps)
+        fbh[:nsamps] = size(h5ds, ndims(h5ds))
+    end
+    fbh
+end
+
+# Create Filterbank.Header object from HDF5.File
+function Header(h5::File)::Header
+    Header(h5["data"])
+end
 end # module HDF5FilterbankExt
