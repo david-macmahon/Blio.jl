@@ -35,6 +35,23 @@ struct Header <: AbstractDict{Symbol, Any}
   function Header()::Header
     new(OrderedDict())
   end
+
+  # Inner "copy constructor"
+  function Header(orig::Header)
+    new(copy(getfield(orig, :dict)))
+  end
+end
+
+# Outer-constructor to create Header from Dict{Symbol,Any}, or NamedTuple.
+function Header(h::Union{AbstractDict{Symbol,Any}, NamedTuple})
+    fbh = Header()
+    for (k,v) in zip(keys(h), values(h))
+        k === :HEADER_START && continue
+        k === :HEADER_END && continue
+        # Keep all others (even non-SIGPROC ones)
+        fbh[k] = v
+    end
+    fbh
 end
 
 # For Julia < 1.9.0
