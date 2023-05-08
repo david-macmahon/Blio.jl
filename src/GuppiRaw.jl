@@ -462,7 +462,7 @@ function load(rawnames::AbstractVector{<:AbstractString};
     load(rawname; headers, datablocks)
   end
 
-  (header, datablocks)
+  (headers, datablocks)
 end
 
 """
