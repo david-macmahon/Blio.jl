@@ -204,6 +204,7 @@ function read!(io::IO, grh::Header; skip_padding::Bool=true)::Bool
     rec = String(buf[:,i])
     k, v = split(rec, '=', limit=2)..., missing
     # Skip malformed records
+    ismissing(k) && continue
     ismissing(v) && continue
     k = Symbol(lowercase(strip(k)))
     v = strip(v)
