@@ -615,7 +615,7 @@ function resize_hdu(hdu::HeaderDataUnit)::HeaderDataUnit
     else
       return HeaderDataUnit(hdu.hdr, Complex{Int8}[])
     end
-  elseif (size(hdu.hdr) == size(hdu.data)
+  elseif (blocksize(hdu.hdr) == blocksize(hdu.data)
       &&  eltype(hdu.data) == Complex{reimtype})
     return hdu
   end
