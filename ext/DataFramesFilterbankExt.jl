@@ -3,9 +3,9 @@ module DataFramesFilterbankExt
 import Blio.Filterbank.Header
 
 if isdefined(Base, :get_extension)
-    import DataFrames: DataFrame, Tables, push!
+    import DataFrames: DataFrame, Tables, push!, select!
 else
-    import ..DataFrames: DataFrame, Tables, push!
+    import ..DataFrames: DataFrame, Tables, push!, select!
 end
 
 function DataFrame(v::Vector{Header})
