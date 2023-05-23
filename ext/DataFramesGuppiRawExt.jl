@@ -4,9 +4,11 @@ import Blio.GuppiRaw.Header
 import Blio.GuppiRaw.load
 
 if isdefined(Base, :get_extension)
-    import DataFrames: DataFrame, DataFrameRow, Tables, push!, select!
+    import DataFrames: DataFrame, push!
+    using DataFrames: DataFrameRow, Tables, select!
 else
-    import ..DataFrames: DataFrame, DataFrameRow, Tables, push!, select!
+    import ..DataFrames: DataFrame, push!
+    using ..DataFrames: DataFrameRow, Tables, select!
 end
 
 # Outer-constructor to create Header from DataFrameRow

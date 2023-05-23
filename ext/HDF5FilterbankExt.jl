@@ -3,9 +3,9 @@ module HDF5FilterbankExt
 import Blio.Filterbank: Header, fil2h5
 
 if isdefined(Base, :get_extension)
-    import HDF5: File, Dataset, h5open, attributes, create_dataset
+    using HDF5: File, Dataset, h5open, attributes, create_dataset
 else
-    import ..HDF5: File, Dataset, h5open, attributes, create_dataset
+    using ..HDF5: File, Dataset, h5open, attributes, create_dataset
 end
 
 function fil2h5(fbname, h5name="$fbname.h5"; kwargs...)
