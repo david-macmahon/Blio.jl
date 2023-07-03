@@ -15,6 +15,8 @@ See also:
 [`chanfreqs(grh::GuppiRaw.Header, chans::AbstractRange)`](@ref)
 [`getntime(GuppiRaw.Header)`](@ref)
 [`resize_hdu(hdu::GuppiRaw.HeaderDataUnit)`](@ref)
+[`parse_header!(grh::GuppiRaw.Header, buf::Array{Uint8,2}, endidx)`](@ref)
+[`parse_header!(grh::GuppiRaw.Header, buf::Array{Uint8,2})`](@ref)
 """
 module GuppiRaw
 
@@ -29,7 +31,7 @@ import Base: Array, copy, delete!, empty!, get, getindex, getproperty, iterate,
 const HEADER_REC_SIZE = 80
 
 # Maximum number of records in a header
-const HEADER_MAX_RECS = 256
+const HEADER_MAX_RECS = 2560
 
 # Number of columns for numeric header values
 const HEADER_NUMERIC_COLS = 23
@@ -163,6 +165,59 @@ function antnchan(grh)::Int
 end
 
 """
+  parse_header!(grh::Header, buf::Array{UInt8,2}, endidx)
+
+Parse the first `endidx` records in `buf` into `grh` (after removing any
+existing contents from `grh`).  `endidx` should be the column index of the `END`
+record in `buf`.  If `endidx` is `nothing` (e.g. if the `END` record does not
+exist), `grh` is still emptied.
+"""
+function parse_header!(grh::Header, buf::Array{UInt8,2}, endidx)
+  # Bounds check axes
+  endidx in axes(buf, 2) || error("endidx is out of range")
+
+  # Make grh empty
+  empty!(grh)
+
+  # Parse first endidx-1 records
+  for col in Iterators.take(eachcol(buf), endidx-1)
+    rec = String(col)
+    k, v = split(rec, '=', limit=2)..., missing
+    # Skip malformed records
+    ismissing(k) && continue
+    ismissing(v) && continue
+    k = Symbol(lowercase(strip(k)))
+    v = strip(v)
+    if v[1] == '\''
+      v = strip(v, [' ', '\''])
+    elseif !isnothing(match(r"^[+-]?[0-9]+$", v))
+      v = parse(Int, v)
+    elseif !isnothing(tryparse(Float64, v))
+      v = parse(Float64, v)
+    end
+    grh[k] = v
+  end
+
+  grh
+end
+
+function parse_header!(grh::Header, _::Array{UInt8,2}, _::Missing)
+  empty!(grh)
+end
+
+"""
+  parse_header!(grh::Header, buf::Array{UInt8,2})
+
+Find the `END` record in `buf` and parse the preceeding records into
+`grh`.  The existing contents of `grh` are always removed, even if the `END`
+record is not found.
+"""
+function parse_header!(grh::Header, buf::Array{UInt8,2})
+  endidx = findfirst(col->col[1:4] == END, eachcol(buf))
+  parse_header!(grh, buf, endidx)
+end
+
+"""
     read!(io::IO, grh::GuppiRaw.Header; skip_padding::Bool=true)::Bool
 
 Read a GUPPI header from `io` and populate `grh`.
@@ -181,53 +236,25 @@ function read!(io::IO, grh::Header; skip_padding::Bool=true)::Bool
   buf = getfield(grh, :buf)
   @assert size(buf, 1) == HEADER_REC_SIZE
 
-  # If not enough bytes remaining (EOF), return false
-  if filesize(io) - position(io) < HEADER_REC_SIZE
-    return false
-  end
-
   recnum = 0
-  while filesize(io) - position(io) >= HEADER_REC_SIZE && recnum < HEADER_MAX_RECS
+  for col in eachcol(buf)
     # Read record into buf
     recnum += 1
-    read!(io, @view buf[:,recnum])
-    buf[1:4, recnum] == END && break
-  end
-
-  # Not found
-  if recnum == HEADER_MAX_RECS && buf[1:4, recnum] != END
-    error("GUPPI RAW header not found in $(length(buf)) bytes")
-  end
-
-  # EOF, return false
-  if recnum == 0 || buf[1:4, recnum] != END
-    return false
-  end
-
-  # Found END record
-  endidx = recnum
-
-  # Make grh empty
-  empty!(grh)
-
-  # Parse first endidx-1 records
-  for i in 1:endidx-1
-    rec = String(buf[:,i])
-    k, v = split(rec, '=', limit=2)..., missing
-    # Skip malformed records
-    ismissing(k) && continue
-    ismissing(v) && continue
-    k = Symbol(lowercase(strip(k)))
-    v = strip(v)
-    if v[1] == '\''
-      v = strip(v, [' ', '\''])
-    elseif !isnothing(match(r"^[+-]?[0-9]+$", v))
-      v = parse(Int, v)
-    elseif !isnothing(tryparse(Float64, v))
-      v = parse(Float64, v)
+    try
+      read!(io, col)
+    catch ex
+      ex isa EOFError && return false
+      rethrow()
     end
-    grh[k] = v
+    col[1:4] == END && break
   end
+
+  # Ensure that END was found
+  if buf[1:4, recnum] != END
+    error("GUPPI RAW header not found in $(recnum) records ($(HEADER_REC_SIZE*recnum) bytes)")
+  end
+
+  parse_header!(grh, buf, recnum)
 
   # If directio exists and is non-zero, seek past padding
   if skip_padding && get(grh, :directio, 0) != 0
