@@ -22,7 +22,7 @@ import Base: Array, delete!, empty!, get, getindex, getproperty, iterate,
              ReinterpretArray
 
 # This is a type alias for possible Filterbank data Arrays
-FilterbankArray = Union{Array{Int8}, Array{Float32}, ReinterpretArray}
+FilterbankArray = Union{Array{<:Union{Int8,UInt8,Float32}}, ReinterpretArray}
 
 """
 Type used to hold a Filterbank header.  Acts very much like an OrderedDict with
@@ -534,7 +534,9 @@ function mmap(fb::IOStream, fbh::Header)::FilterbankArray
   dims = datasize(fbh)
   # datasize() enforces nbits == 8 or nbits == 32
   if fbh[:nbits] == 8
-    eltype = Int8
+    # If nifs (aka dims[2]) is 1, assume data are Stokes I only and use UInt8
+    # otherwise, assume full Stokes or cross-pol data are present and use Int8
+    eltype = dims[2] == 1 ? UInt8 : Int8
   else
     eltype = Float32
   end
@@ -556,7 +558,11 @@ end
 Return an uninitialized Array sized for `nsamps` spectra of Filterbank data
 with dimensions derived from metadata in `fbh`, specifically the `fbh.nchans`,
 `fbh.nifs`, and `fbh.nbits` fields.  The data type of the Array elements will
-be `Int8` when `fbh.nbits == 8` or `Float32` when `fbh.nbits == 32`.
+be:
+
+- `UInt8` when `fbh.nbits == 8` and `fbh.nifs == 1`, or
+- `Int8` when `fbh.nbits == 8` and `fbh.nifs != 1`, or
+- `Float32` when `fbh.nbits == 32`.
 
 If `nsamps` is zero, the Array will be sized to hold all spectra from the file
 or as many spectra as will fit in `maxmem` bytes, whichever is less.  The
@@ -609,7 +615,9 @@ function Array(fbh::Header, nsamps::Integer=0;
   end
 
   if nbits == 8
-    eltype = Int8
+    # If nifs is 1, assume data are Stokes I only and use UInt8
+    # otherwise, assume full Stokes or cross-pol data are present and use Int8
+    eltype = nifs == 1 ? UInt8 : Int8
   else
     eltype = Float32
   end
