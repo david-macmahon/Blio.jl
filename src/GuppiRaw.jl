@@ -145,6 +145,7 @@ end
 
 """
     antnchan(grh)::Int
+
 Returns the number of channels per antenna (i.e. `obsnchan ÷ nants`).
 Missing `nants` implies `nants == 1`.
 
@@ -165,7 +166,7 @@ function antnchan(grh)::Int
 end
 
 """
-  parse_header!(grh::Header, buf::Array{UInt8,2}, endidx)
+    parse_header!(grh::Header, buf::Array{UInt8,2}, endidx)
 
 Parse the first `endidx` records in `buf` into `grh` (after removing any
 existing contents from `grh`).  `endidx` should be the column index of the `END`
@@ -206,7 +207,7 @@ function parse_header!(grh::Header, _::Array{UInt8,2}, _::Missing)
 end
 
 """
-  parse_header!(grh::Header, buf::Array{UInt8,2})
+    parse_header!(grh::Header, buf::Array{UInt8,2})
 
 Find the `END` record in `buf` and parse the preceeding records into
 `grh`.  The existing contents of `grh` are always removed, even if the `END`
@@ -444,7 +445,7 @@ function Array(grh::Header, nchan::Int=0)::RawArray
 end
 
 """
-  load(io::IO; headers=Header[], datablocks=Array{<:Complex{<:Integer}}[])
+    load(io::IO; headers=Header[], datablocks=Array{<:Complex{<:Integer}}[])
 
 Load GUPPI RAW file from current position of `io` to end of file.  `io` must be
 positioned at the start of a GUPPI RAW header.  The headers are read as
@@ -466,7 +467,7 @@ function load(io::IO; headers=Header[], datablocks=Array{<:Complex{<:Integer}}[]
 end
 
 """
-  load(fn::AbstractString; headers=Header[], datablocks=Array{<:Complex{<:Integer}}[])
+    load(fn::AbstractString; headers=Header[], datablocks=Array{<:Complex{<:Integer}}[])
 
 Load GUPPI RAW file given by `fn`.  The headers are read as GuppiRaw.Header
 objects and `push!`-ed onto `headers`.  The data blocks are `mmap`-ed as Arrays
@@ -487,7 +488,7 @@ function load(rawname::AbstractString;
 end
 
 """
-  load(fns::AbstractVector{<:AbstractString}; headers=Header[], datablocks=Array{<:Complex{<:Integer}}[])
+    load(fns::AbstractVector{<:AbstractString}; headers=Header[], datablocks=Array{<:Complex{<:Integer}}[])
 
 Load GUPPI RAW files given by `fns`.  See `load(fn::AbstractString; ...)` for
 more details.
@@ -505,7 +506,7 @@ function load(rawnames::AbstractVector{<:AbstractString};
 end
 
 """
-   blocksize(grh[, dim])
+    blocksize(grh[, dim])
 
 Return a tuple containing the dimensions of the data block described by `grh`.
 Optionally you can specify a dimension to just get the length of that
@@ -541,7 +542,7 @@ end
 blocksize(grh::Header, dim) = blocksize(grh)[dim]
 
 """
-   blocktype(grh)
+    blocktype(grh)
 
 Return the type of an Array that corresponds to the data in the datablock
 described by `grh`.  This will typically be one of the following types:

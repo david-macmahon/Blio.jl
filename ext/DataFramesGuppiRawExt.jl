@@ -35,8 +35,9 @@ function push!(df::DataFrame, grh::Header)
 end
 
 """
-  load(io::IO ::Type{DataFrame}; datablocks=Array{<:Complex{<:Integer}}[])
-  load(fn::AbstractString ::Type{DataFrame}; datablocks=Array{<:Complex{<:Integer}}[])
+    load(io::IO, ::Type{DataFrame}; datablocks=Array{<:Complex{<:Integer}}[])
+    load(fn::AbstractString, ::Type{DataFrame}; datablocks=Array{<:Complex{<:Integer}}[])
+    load(fns::AbstractVector, ::Type{DataFrame}; datablocks=Array{<:Complex{<:Integer}}[])
 
 Equivalent to `load(io; headers=DataFrame(), datablocks)` except that the
 returned `headers` DataFrame will have column names in sorted order.  Same for

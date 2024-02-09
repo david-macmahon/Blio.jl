@@ -174,39 +174,39 @@ function read_angle(io)::Float64
   angle -= 10000 * dd
   mm = angle ÷ 100
   ss = angle - 100 * mm
-  dd += mm/60.0 + ss/3600.0 
+  dd += mm/60.0 + ss/3600.0
   negative ? -dd : dd
 end
 
 """
-# Writes `i` to `io` with native endianess.
+Writes `i` to `io` with native endianess.
 """
 write_int(io::IO, i::Int32) = write(io, htol(i))
 
 """
-# Writes `u` to `io` with native endianess.
+Writes `u` to `io` with native endianess.
 """
 write_uint(io::IO, u::UInt32) = write(io, htol(u))
 
 """
-# Writes `f` to `io` with native endianess.
+Writes `f` to `io` with native endianess.
 """
 write_double(io::IO, f::Float64) = write(io, htol(f))
 
 """
-# Writes `s` to `io` as a filterbank header string
+Writes `s` to `io` as a filterbank header string
 """
 function write_string(io::IO, s::AbstractString)
   write_uint(io, UInt32(length(s))) + write(io, s)
 end
 
 """
-# Writes `s` to `io` as a filterbank header string
+Writes `s` to `io` as a filterbank header string
 """
 write_symbol(io::IO, s::Symbol) = write_string(io, String(s))
 
 """
-Converts `f` to ddmmss.s (or hhmmss.s) format and then writes it to `io` with
+Converts `v` to ddmmss.s (or hhmmss.s) format and then writes it to `io` with
 native endianess.  This is primarily used to write `src_raj` and `src_dej`
 header values.
 """

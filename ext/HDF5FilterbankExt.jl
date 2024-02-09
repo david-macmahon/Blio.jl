@@ -37,7 +37,13 @@ function fil2h5(fbname, h5name="$fbname.h5"; kwargs...)
     h5name
 end
 
-# Create Filterbank.Header object from HDF5.Dataset
+"""
+    Header(h5ds::Dataset)::Filterbank.Header
+
+Create Filterbank.Header object from an HDF5.Dataset that has Filterbank
+attributes attached to it.  Typically this will be the `data` dataset of a so
+called FBH5 file (Filterbank HDF5 file).
+"""
 function Header(h5ds::Dataset)::Header
     fbh = Header()
     attrs = attributes(h5ds)
@@ -56,8 +62,15 @@ function Header(h5ds::Dataset)::Header
     fbh
 end
 
-# Create Filterbank.Header object from HDF5.File
+"""
+    Header(h5ds::Dataset)::Filterbank.Header
+
+Create Filterbank.Header object from an HDF5.File that has Filterbank
+attributes attached to its `data` dataset.  Such a file is also known as an
+FBH5 file (Filterbank HDF5 file).
+"""
 function Header(h5::File)::Header
     Header(h5["data"])
 end
+
 end # module HDF5FilterbankExt
