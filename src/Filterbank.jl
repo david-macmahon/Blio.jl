@@ -16,6 +16,7 @@ module Filterbank
 
 using OrderedCollections
 import Mmap
+import ..GuppiRaw
 
 import Base: Array, delete!, empty!, get, getindex, getproperty, iterate,
              length, propertynames, read, read!, setindex!, size, write,
@@ -42,7 +43,14 @@ struct Header <: AbstractDict{Symbol, Any}
   end
 end
 
-# Outer-constructor to create Header from Dict{Symbol,Any}, or NamedTuple.
+"""
+    Header() -> Filterbank.Header
+    Header(other) -> Filterbank.Header
+
+Construct an empty `Filterbank.Header` object or one initialized from `other`,
+which may be another `Filterbank.Header`, an `AbstractDict{Symbol,Any}`, or a
+`NamedTuple`.
+"""
 function Header(h::Union{AbstractDict{Symbol,Any}, NamedTuple})
     fbh = Header()
     for (k,v) in zip(keys(h), values(h))
@@ -51,6 +59,56 @@ function Header(h::Union{AbstractDict{Symbol,Any}, NamedTuple})
         # Keep all others (even non-SIGPROC ones)
         fbh[k] = v
     end
+    fbh
+end
+
+"""
+    Header(grh::GuppiRaw.Header; kwargs...) -> Filterbank.Header
+
+Constructor to create Filterbank.Header from GuppiRaw.Header, translating
+corresponding fields as needed.  Assumes Filterbank frequency channels and time
+samples have the same resolution as GuppiRaw counterparts.  Fields may be
+overridden by passing them as `kwargs`.  The following defaults are used:
+- `telescope_id` = -1
+- `machine_id` = -1
+- `data_type` = 1
+- `barycentric` = 0
+- `pulsarcentric` = 0
+- `nbeams` = 1
+- `ibeam` = 1
+- `nbits` = 32
+- `nifs` = 1
+"""
+function Header(grh::GuppiRaw.Header; kwargs...)
+    fbh = Header()
+
+    fbh[:telescope_id] = -1
+    fbh[:machine_id] = -1
+    fbh[:data_type] = 1
+    fbh[:barycentric] = 0
+    fbh[:pulsarcentric] = 0
+    fbh[:nbeams] = 1
+    fbh[:ibeam] = 1
+    fbh[:nbits] = 32
+    haskey(grh, :obsnchan) && (fbh[:nchans] = grh[:obsnchan])
+    fbh[:nifs] = 1 # override in `kwargs` if desired
+    haskey(grh, :src_name) && (fbh[:source_name] = grh[:src_name])
+    haskey(grh, :az) && (fbh[:az_start] = grh[:az])
+    haskey(grh, :za) && (fbh[:za_start] = grh[:za])
+    if haskey(grh, :stt_imjd) && haskey(grh, :stt_smjd)
+        fbh[:tstart] = grh[:stt_imjd] + grh[:stt_smjd] / (24 * 60 * 60)
+    end
+    haskey(grh, :tbin) && (fbh[:tsamp] = grh[:tbin])
+    if haskey(grh, :obsnchan) && haskey(grh, :obsbw)
+        nchan = GuppiRaw.antnchan(grh)
+        fbh[:fch1] = grh[:obsnchan] - (nchan - 1) / (2 * nchan) * grh[:obsbw]
+    end
+    haskey(grh, :chan_bw) && (fbh[:foff] = grh[:chan_bw])
+    haskey(grh, :ra) && (fbh[:src_raj] = grh[:ra] / 15) # Convert degrees to hours
+    haskey(grh, :dec) && (fbh[:src_dej] = grh[:dec])
+
+    merge!(getfield(fbh, :dict), kwargs)
+
     fbh
 end
 
