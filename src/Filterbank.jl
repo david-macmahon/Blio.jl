@@ -99,9 +99,9 @@ function Header(grh::GuppiRaw.Header; kwargs...)
         fbh[:tstart] = grh[:stt_imjd] + grh[:stt_smjd] / (24 * 60 * 60)
     end
     haskey(grh, :tbin) && (fbh[:tsamp] = grh[:tbin])
-    if haskey(grh, :obsnchan) && haskey(grh, :obsbw)
+    if haskey(grh, :obsfreq) && haskey(grh, :obsbw) && haskey(grh, :obsnchan)
         nchan = GuppiRaw.antnchan(grh)
-        fbh[:fch1] = grh[:obsnchan] - (nchan - 1) / (2 * nchan) * grh[:obsbw]
+        fbh[:fch1] = grh[:obsfreq] - (nchan - 1) / (2 * nchan) * grh[:obsbw]
     end
     haskey(grh, :chan_bw) && (fbh[:foff] = grh[:chan_bw])
     haskey(grh, :ra) && (fbh[:src_raj] = grh[:ra] / 15) # Convert degrees to hours
