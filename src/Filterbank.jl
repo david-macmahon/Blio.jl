@@ -750,6 +750,44 @@ function chanfreqs(fbh, chans::AbstractRange)::AbstractRange
        )
 end
 
+"""
+Dictionary mapping some telescope names to SIGPROC *telescope_id* codes
+(integers).  These mappings are from copied from `rawspec_fbutils.c`, which has
+distilled them from the various sigproc code bases.
+"""
+const TELESCOPE_NAME_TO_SIGPROC_ID = Dict{String, Int}(
+    "FAKE"       => 0,
+    "ARECIBO"    => 1,
+    "OOTY"       => 2,
+    "NANCAY"     => 3,
+    "PARKES"     => 4,
+    "JODRELL"    => 5,
+    "GBT"        => 6,
+    "GMRT"       => 7,
+    "EFFELSBERG" => 8,
+    "140FT"      => 9,
+    # ATA used to be 10, but the SRT is now 10 and (at leasst in bl_sigproc)
+    # ATA is 9.  The "140FT" telescope used to be 9 so we still map from that
+    # name to 9 even though bl_sigproc will display it as "ATA".  AFAIK, the
+    # 140FT is not producing GUPPI RAW files, so there is little chance that
+    # this will ever cause any problems (but it would still be nice to
+    # reconcile telescope_id across all sigproc-derived libraries).
+    "ATA"        => 9,
+    "SRT"        => 10,
+    "LEUSCHNER"  => 11,
+    "MEERKAT"    => 64
+)
+
+"""
+     sigproc_telescope_id(telescope_name) -> telescope_id
+
+Lookup the the SIGPROC `telescope_id` for the given `telescope_name`.  Returns
+`-1` for unknown telescopes.
+"""
+function sigproc_telescope_id(telescope_name)
+    get(TELESCOPE_NAME_TO_SIGPROC_ID, uppercase(telescope_name), -1)
+end
+
 # A method is added to `fil2h5` if/when the HDF5 package is loaded
 function fil2h5 end
 
