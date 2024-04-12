@@ -94,7 +94,11 @@ function Header(grh::GuppiRaw.Header; kwargs...)
     fbh[:nifs] = 1 # override in `kwargs` if desired
     haskey(grh, :src_name) && (fbh[:source_name] = grh[:src_name])
     haskey(grh, :az) && (fbh[:az_start] = grh[:az])
-    haskey(grh, :za) && (fbh[:za_start] = grh[:za])
+    if haskey(grh, :za)
+        fbh[:za_start] = grh[:za]
+    elseif haskey(grh, :el)
+        fbh[:za_start] = 90.0 - grh[:el]
+    end
     if haskey(grh, :stt_imjd) && haskey(grh, :stt_smjd)
         fbh[:tstart] = grh[:stt_imjd] + grh[:stt_smjd] / (24 * 60 * 60)
     end
