@@ -82,7 +82,7 @@ overridden by passing them as `kwargs`.  The following defaults are used:
 function Header(grh::GuppiRaw.Header; kwargs...)
     fbh = Header()
 
-    fbh[:telescope_id] = -1
+    fbh[:telescope_id] = sigproc_telescope_id(get(grh, :telescop, ""))
     fbh[:machine_id] = -1
     fbh[:data_type] = 1
     fbh[:barycentric] = 0
