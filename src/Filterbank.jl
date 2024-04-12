@@ -88,7 +88,7 @@ function Header(grh::GuppiRaw.Header; kwargs...)
     fbh[:barycentric] = 0
     fbh[:pulsarcentric] = 0
     fbh[:nbeams] = 1
-    fbh[:ibeam] = 1
+    fbh[:ibeam] = get(grh, :beam_id, -1)
     fbh[:nbits] = 32
     haskey(grh, :obsnchan) && (fbh[:nchans] = grh[:obsnchan])
     fbh[:nifs] = 1 # override in `kwargs` if desired
