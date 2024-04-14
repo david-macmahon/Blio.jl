@@ -35,37 +35,44 @@ function push!(df::DataFrame, grh::Header)
 end
 
 """
-    load(io::IO, ::Type{DataFrame}; datablocks=Array{<:Complex{<:Integer}}[])
-    load(fn::AbstractString, ::Type{DataFrame}; datablocks=Array{<:Complex{<:Integer}}[])
-    load(fns::AbstractVector, ::Type{DataFrame}; datablocks=Array{<:Complex{<:Integer}}[])
+    load([predicate,] io::IO, ::Type{DataFrame}; datablocks=Array{<:Complex{<:Integer}}[])
+    load([predicate,] rawname, ::Type{DataFrame}; datablocks=Array{<:Complex{<:Integer}}[])
+    load([predicate,] rawnames, ::Type{DataFrame}; datablocks=Array{<:Complex{<:Integer}}[])
 
-Equivalent to `load(io; headers=DataFrame(), datablocks)` except that the
-returned `headers` DataFrame will have column names in sorted order.  Same for
-the methods taking `fn::AbstractString` and
-`fns::AbstractVector{<:AbstractString}`.
+Equivalent to `load([predicate,] io; headers=DataFrame(), datablocks)` except
+that the returned `headers` DataFrame will have column names in sorted order.
+Same for the methods taking `rawname::AbstractString` and
+`rawnames::AbstractVector{<:AbstractString}`.
 """
-function load(io::IO, ::Type{DataFrame};
-              headers::DataFrame = DataFrame(),
+function load(predicate::Function, io::IO, ::Type{DataFrame};
+              headers::DataFrame=DataFrame(),
               datablocks=Array{<:Complex{<:Integer}}[])
-    load(io; headers, datablocks)
+    load(predicate, io; headers, datablocks)
     select!(headers, sort(names(headers))), datablocks
 end
 
-function load(rawname::AbstractString, ::Type{DataFrame};
+function load(predicate::Function, rawname::AbstractString, ::Type{DataFrame};
               headers::DataFrame = DataFrame(),
               datablocks=Array{<:Complex{<:Integer}}[])
-  open(rawname) do io
-    load(io, DataFrame; headers, datablocks)
-  end
+    open(rawname) do io
+        load(predicate, io, DataFrame; headers, datablocks)
+    end
 end
 
-function load(rawnames::AbstractVector{<:AbstractString}, ::Type{DataFrame};
+function load(predicate::Function, rawnames::AbstractVector{<:AbstractString},
+              ::Type{DataFrame};
               headers::DataFrame = DataFrame(),
               datablocks=Array{<:Complex{<:Integer}}[])
-  foreach(rawnames) do rawname
-    load(rawname, DataFrame; headers, datablocks)
-  end
-  (headers, datablocks)
+    for rawname in rawnames
+        load(predicate, rawname, DataFrame; headers, datablocks)
+    end
+    (headers, datablocks)
+end
+
+function load(src, ::Type{DataFrame};
+              headers::DataFrame=DataFrame(),
+              datablocks=Array{<:Complex{<:Integer}}[])
+    load(grh->true, src, DataFrame; headers, datablocks)
 end
 
 end # module DataFramesGuppiRawExt

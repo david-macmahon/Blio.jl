@@ -445,65 +445,82 @@ function Array(grh::Header, nchan::Int=0)::RawArray
 end
 
 """
-    load(io::IO; headers=Header[], datablocks=Array{<:Complex{<:Integer}}[])
+    mmap(io::IO, grh::Header) -> datablock
 
-Load GUPPI RAW file from current position of `io` to end of file.  `io` must be
-positioned at the start of a GUPPI RAW header.  The headers are read as
-GuppiRaw.Header objects and `push!`-ed onto `headers`.  The data blocks are
-`mmap`-ed as Arrays and `push!`-ed onto `datablocks`.  `headers` and
-`datablocks` default to empty Vectors, but any object onto which
+`mmap` a datablock starting from the current position of `io`.  The type and
+size of the data block are as described by `grh`.  The position of `io` is
+advanced by `grh[:blocsize]` (i.e. to just past the data block).
+"""
+function mmap(io::IO, grh::Header)
+    datablock = mmap(io, blocktype(grh), blocksize(grh), position(io))
+    skip(io, grh[:blocsize])
+    datablock
+end
+
+"""
+    load([predicate,] io::IO; headers=Header[], datablocks=Array{<:Complex{<:Integer}}[])
+    load([predicate,] filename; headers=Header[], datablocks=Array{<:Complex{<:Integer}}[])
+    load([predicate,] filenames; headers=Header[], datablocks=Array{<:Complex{<:Integer}}[])
+
+The first form loads GUPPI RAW headers and datablocks from the current position
+of `io` to end of file.  `io` must be positioned at the start of a GUPPI RAW
+header.  The latter two forms read from the specified GUPPI RAW file or files.
+
+The headers are read as GuppiRaw.Header objects and `push!`-ed onto `headers`.
+The data blocks are `mmap`-ed as Arrays and `push!`-ed onto `datablocks`.
+`headers` and `datablocks` default to empty Vectors, but any object onto which
 `GuppiRaw.Header`s or `Array`s can be pushed may be given.
 
-Returns the tuple `(headers, datablocks)`.
-"""
-function load(io::IO; headers=Header[], datablocks=Array{<:Complex{<:Integer}}[])
-  grh = Header()
-  while read!(io, grh)
-    push!(headers, copy(grh))
-    push!(datablocks, mmap(io, blocktype(grh), blocksize(grh), position(io)))
-    skip(io, grh[:blocsize])
-  end
-  (headers, datablocks)
-end
-
-"""
-    load(fn::AbstractString; headers=Header[], datablocks=Array{<:Complex{<:Integer}}[])
-
-Load GUPPI RAW file given by `fn`.  The headers are read as GuppiRaw.Header
-objects and `push!`-ed onto `headers`.  The data blocks are `mmap`-ed as Arrays
-and `push!`-ed onto `datablocks`.  `headers` and `datablocks` default to empty
-Vectors, but any object onto which `GuppiRaw.Header`s or `Array`s can be pushed
-may be given.
-
-The file named by `fn` is closed before this function returns, but the OS will
-hold the file open until the mmap's datablocks are garbage collected.
+If a `predicate` function is given it will be passed the first `GuppiRaw.Header`
+read from `io` or each file given.  The `predicate` function can examine the
+`Header` to determine whether the file is considered valid (e.g. has expected
+sizing and/or frequency attributes).  If the file is considered valid, the
+function should return `true`.  If the file is not considered valid, the
+function may return false, which will cause `load` to return `headers` and
+`datablocks` unmodified for that file, or it may raise an exception if desired
+(which will also stop any further the loading).  Note that when multiple
+filenames are given, `predicate` is passed the first header of each file
+independently.
 
 Returns the tuple `(headers, datablocks)`.
 """
-function load(rawname::AbstractString;
+function load(predicate::Function, io::IO;
               headers=Header[], datablocks=Array{<:Complex{<:Integer}}[])
-  open(rawname) do io
-    load(io; headers, datablocks)
-  end
+    # Read first header
+    grh = read(io, Header)
+    if predicate(grh)
+        push!(headers, copy(grh))
+        push!(datablocks, mmap(io, grh))
+
+        while read!(io, grh)
+              push!(headers, copy(grh))
+              push!(datablocks, mmap(io, grh))
+        end
+    end
+    (headers, datablocks)
 end
 
-"""
-    load(fns::AbstractVector{<:AbstractString}; headers=Header[], datablocks=Array{<:Complex{<:Integer}}[])
-
-Load GUPPI RAW files given by `fns`.  See `load(fn::AbstractString; ...)` for
-more details.
-
-Returns the tuple `(headers, datablocks)`.  The returned Vectors include all
-headers/data arrays from all files.
-"""
-function load(rawnames::AbstractVector{<:AbstractString};
+function load(predicate::Function, rawname::AbstractString;
               headers=Header[], datablocks=Array{<:Complex{<:Integer}}[])
-  foreach(rawnames) do rawname
-    load(rawname; headers, datablocks)
-  end
-
-  (headers, datablocks)
+    open(rawname) do io
+        load(predicate, io; headers, datablocks)
+    end
 end
+
+function load(predicate::Function, rawnames::AbstractVector{<:AbstractString};
+              headers=Header[], datablocks=Array{<:Complex{<:Integer}}[])
+    for rawname in rawnames
+        load(predicate, rawname; headers, datablocks)
+    end
+
+    (headers, datablocks)
+end
+
+function load(src; headers=Header[],
+              datablocks=Array{<:Complex{<:Integer}}[])
+    load(grh->true, src; headers, datablocks)
+end
+
 
 """
     blocksize(grh[, dim])
