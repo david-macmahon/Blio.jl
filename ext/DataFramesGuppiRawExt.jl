@@ -25,8 +25,11 @@ function Header(h::DataFrameRow)
     grh
 end
 
-function DataFrame(v::Vector{Header})
-    df = DataFrame(Tables.dictcolumntable(v))
+function DataFrame(v::AbstractVector{<:Header})
+    df = DataFrame()
+    for h in v
+        push!(df, h; cols=:union)
+    end
     select!(df, sort(names(df)))
 end
 
