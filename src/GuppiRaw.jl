@@ -469,7 +469,9 @@ header.  The latter two forms read from the specified GUPPI RAW file or files.
 The headers are read as GuppiRaw.Header objects and `push!`-ed onto `headers`.
 The data blocks are `mmap`-ed as Arrays and `push!`-ed onto `datablocks`.
 `headers` and `datablocks` default to empty Vectors, but any object onto which
-`GuppiRaw.Header`s or `Array`s can be pushed may be given.
+`GuppiRaw.Header`s or `Array`s can be pushed may be given.  If `datablocks` is
+given as `false`, then only the headers are read.  This can be used to read the
+headers without reading or `mmap`ing the data blocks.
 
 If a `predicate` function is given it will be passed the first `GuppiRaw.Header`
 read from `io` or each file given.  The `predicate` function can examine the
@@ -482,19 +484,29 @@ function may return false, which will cause `load` to return `headers` and
 filenames are given, `predicate` is passed the first header of each file
 independently.
 
-Returns the tuple `(headers, datablocks)`.
+Returns the tuple `(headers, datablocks)`, even when `datablocks` is `false`.
 """
 function load(predicate::Function, io::IO;
               headers=Header[], datablocks=Array{<:Complex{<:Integer}}[])
+    skip_datablocks = (datablocks === false)
+
     # Read first header
     grh = read(io, Header)
     if predicate(grh)
         push!(headers, copy(grh))
-        push!(datablocks, mmap(io, grh))
+        if(skip_datablocks)
+            skip(io, grh[:blocsize])
+        else
+            push!(datablocks, mmap(io, grh))
+        end
 
         while read!(io, grh)
-              push!(headers, copy(grh))
-              push!(datablocks, mmap(io, grh))
+            push!(headers, copy(grh))
+            if(skip_datablocks)
+                skip(io, grh[:blocsize])
+            else
+                push!(datablocks, mmap(io, grh))
+            end
         end
     end
     (headers, datablocks)
