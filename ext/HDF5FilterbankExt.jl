@@ -1,11 +1,12 @@
 module HDF5FilterbankExt
 
 import Blio.Filterbank: Header, fil2h5
+import Base.write
 
 if isdefined(Base, :get_extension)
-    using HDF5: File, Dataset, h5open, attributes, create_dataset
+    using HDF5: File, Dataset, h5open, attributes, create_dataset, write_attribute
 else
-    using ..HDF5: File, Dataset, h5open, attributes, create_dataset
+    using ..HDF5: File, Dataset, h5open, attributes, create_dataset, write_attribute
 end
 
 function fil2h5(fbname, h5name="$fbname.h5"; kwargs...)
@@ -38,11 +39,14 @@ function fil2h5(fbname, h5name="$fbname.h5"; kwargs...)
 end
 
 """
-    Header(h5ds::Dataset)::Filterbank.Header
+    Header(h5ds::HDF5.Dataset)::Filterbank.Header
+    Header(h5::HDF5.File)::Filterbank.Header
 
-Create Filterbank.Header object from an HDF5.Dataset that has Filterbank
-attributes attached to it.  Typically this will be the `data` dataset of a so
-called FBH5 file (Filterbank HDF5 file).
+Create `Filterbank.Header` object from dataset `h5ds` or `h5["data"]`.
+
+The names/types of the attributes are not checked for Filterbank validity.  The
+`data_size` and `nsamps` attributes will be added to the `Header` object if they
+do not exist as attributes.
 """
 function Header(h5ds::Dataset)::Header
     fbh = Header()
@@ -62,15 +66,30 @@ function Header(h5ds::Dataset)::Header
     fbh
 end
 
-"""
-    Header(h5ds::Dataset)::Filterbank.Header
-
-Create Filterbank.Header object from an HDF5.File that has Filterbank
-attributes attached to its `data` dataset.  Such a file is also known as an
-FBH5 file (Filterbank HDF5 file).
-"""
 function Header(h5::File)::Header
     Header(h5["data"])
+end
+
+"""
+    write(h5ds::HDF5.Dataset, fbh::Filterbank.Header)
+    write(h5::HDF5.File, fbh::Filterbank.Header)
+
+Write `fbh` contents as attributes of dataset `h5ds` or `h5["data"]`.
+
+The `data_size` and `nsamps` fields will not be written since they can be
+inferred from the dimensions of the dataset.
+"""
+function write(h5ds::Dataset, fbh::Header)
+    for (k,v) in fbh
+        # Don't copy these synthetic attributes
+        k == :data_size && continue
+        k == :nsamps && continue
+        write_attribute(h5ds, string(k), v)
+    end
+end
+
+function write(h5::File, fbh::Header)
+    write(h5["data"], fbh)
 end
 
 end # module HDF5FilterbankExt
