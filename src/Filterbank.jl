@@ -749,7 +749,7 @@ end
 
 function chanfreqs(fbh, chans::AbstractRange)::AbstractRange
   range(chanfreq(fbh, first(chans)),
-        step=fbh[:fieldoffset]*step(chans),
+        step=fbh[:foff]*step(chans),
         length=length(chans)
        )
 end
