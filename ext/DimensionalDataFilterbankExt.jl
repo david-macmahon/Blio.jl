@@ -4,7 +4,7 @@ import DimensionalData: Dim, dims
 using Blio.Filterbank: Header, chanfreqs
 
 """
-    dims(fbh::Filterbank.Header, pols=:auto) -> (Dim{:Frequency}, Dim{:Pol}, Dim{:Time})
+    dims(fbh::Filterbank.Header, pols=:auto; chans=:, times=:) -> (Dim{:Frequency}, Dim{:Pol}, Dim{:Time})
 
 Return a `Tuple{Dim{:Frequency}, Dim{:Pol}, Dim{:Time}}` suitable for wrapping
 the data array described by `fbh` in a `DimArray`.  The frequency axis is fully
@@ -12,6 +12,8 @@ determined by the `:fch1`, `:foff`, and `:nchans` fields of `fbh`.  The time
 axis contains the time of each sample relative to the first sample.  It is fully
 determined by the `:tsamp` and `:nsamps` fields of `fbh`.  For standard
 Filterbank headers the frequency and time axes will be in MHz and seconds, resp.
+The `chans` and `times` keyword arguments can be used to specify subsets of the
+full `Frequency` and `Time` axes.
 
 The polarization axis, `Dim{:Pol}`, is a categorical axis.  Filterbank headers
 do not specify which polarization products are present; only the number of
@@ -33,18 +35,18 @@ specify pre-defined lists of common polarization product names (see table).  If
 | :hv          | [:HH, :VV, :ReHV, :ImHV] |
 | :vh          | [:VV, :VH, :ReVH, :ImVH] |
 """
-function dims(fbh::Header, pols::AbstractVector{Symbol})
+function dims(fbh::Header, pols::AbstractVector{Symbol}; chans=:, times=:)
     nifs = fbh[:nifs]
     nifs > length(pols) && error("nifs $nifs > $(length(pols))")
 
     (
-        Dim{:Frequency}(chanfreqs(fbh)),
+        Dim{:Frequency}(chanfreqs(fbh)[chans]),
         Dim{:Pol}(first(pols, nifs)),
-        Dim{:Time}(range(0, step=fbh[:tsamp], length=fbh[:nsamps]))
+        Dim{:Time}(range(0, step=fbh[:tsamp], length=fbh[:nsamps])[times])
     )
 end
 
-function dims(fbh::Header, pols::Symbol=:auto)
+function dims(fbh::Header, pols::Symbol=:auto; chans=:, times=:)
     if pols == :auto
         pols = fbh[:nifs] == 1 ? :stokes : :xy
     end
@@ -58,7 +60,7 @@ function dims(fbh::Header, pols::Symbol=:auto)
               pols == :vh       ? [:VV, :HH, :ReVH, :ImVH] :
               error("invalid pols $pols")
 
-    dims(fbh, polsvec)
+    dims(fbh, polsvec; chans, times)
 end
 
 end # module DimensionalDataFilterbankExt
