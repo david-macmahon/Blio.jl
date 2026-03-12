@@ -359,12 +359,14 @@ function read_header_item(io::IO)
 end
 
 """
-    write_header_item(io::IO, kw::Symbol, val=nothing)
+    write_header_item(io::IO, kw::Symbol, val=nothing; quiet=false)
 
 Writes Filterbank header item `kw` and `val` to `io`.  A value must be passed
-for all keywords other than `:HEADER_START` and `:HEADER_END`.
+for all keywords other than `:HEADER_START` and `:HEADER_END`.  If `quiet` is
+`false` (the default), then unknown/unsupported keywords will output warning
+messages.
 """
-function write_header_item(io::IO, kw::Symbol, val=nothing)
+function write_header_item(io::IO, kw::Symbol, val=nothing; quiet=false)
   # Special keywords
   if     kw == :HEADER_START  ||
          kw == :HEADER_END
@@ -413,9 +415,9 @@ function write_header_item(io::IO, kw::Symbol, val=nothing)
   elseif kw == :FREQUENCY_START ||
          kw == :fchannel        ||
          kw == :FREQUENCY_END
-    @warn "unsupported keyword" kw
+    quiet || @warn "unsupported keyword" kw
   else
-    @warn "unknown keyword" kw
+    quiet || @warn "unknown keyword" kw
   end
 end
 
@@ -492,18 +494,19 @@ Create a `Filterbank::Header` object, then call `read!()` to populate it.
 read(io::IO, ::Type{Header}) = read!(io, Header())
 
 """
-    write(io::IO, fbh::Filterbank.Header)
+    write(io::IO, fbh::Filterbank.Header; quiet=false)
 
 Seeks to the beginning of io and writes a Filterbank header from the contents
-of `fbh`.
+of `fbh`.  If `quiet` is `false` (the default), then unknown/unsupported
+keywords will output warning messages.
 """
-function write(io::IO, fbh::Header)
+function write(io::IO, fbh::Header; quiet=false)
   seekstart(io)
 
   write_header_item(io, :HEADER_START)
 
   for (kw, val) in fbh
-    write_header_item(io, kw, val)
+    write_header_item(io, kw, val; quiet)
   end
 
   write_header_item(io, :HEADER_END)
@@ -793,6 +796,19 @@ function sigproc_telescope_id(telescope_name)
 end
 
 # A method is added to `fil2h5` if/when the HDF5 package is loaded
+"""
+    fil2h5
+
+To use the `fil2h5` function you must load both Blio.Filterbank and HDF5.
+"""
 function fil2h5 end
+
+# A method is added to `h52fil` if/when the HDF5 package is loaded
+"""
+    h52fil
+
+To use the `h52fil` function you must load both Blio.Filterbank and HDF5.
+"""
+function h52fil end
 
 end # module Filterbank
