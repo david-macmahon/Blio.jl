@@ -2,11 +2,12 @@ module HDF5FilterbankExt
 
 import Blio.Filterbank: Header, fil2h5
 import Base.write
+import HDF5: write_attribute
 
 if isdefined(Base, :get_extension)
-    using HDF5: File, Dataset, h5open, attributes, create_dataset, write_attribute
+    using HDF5: File, Dataset, h5open, attributes, create_dataset
 else
-    using ..HDF5: File, Dataset, h5open, attributes, create_dataset, write_attribute
+    using ..HDF5: File, Dataset, h5open, attributes, create_dataset
 end
 
 function fil2h5(fbname, h5name="$fbname.h5"; kwargs...)
@@ -71,15 +72,15 @@ function Header(h5::File)::Header
 end
 
 """
-    write(h5ds::HDF5.Dataset, fbh::Filterbank.Header)
-    write(h5::HDF5.File, fbh::Filterbank.Header)
+    write_attribute(h5ds::HDF5.Dataset, fbh::Filterbank.Header)
+    write_attribute(h5::HDF5.File, fbh::Filterbank.Header)
 
 Write `fbh` contents as attributes of dataset `h5ds` or `h5["data"]`.
 
 The `data_size` and `nsamps` fields will not be written since they can be
 inferred from the dimensions of the dataset.
 """
-function write(h5ds::Dataset, fbh::Header)
+function write_attribute(h5ds::Dataset, fbh::Header)
     for (k,v) in fbh
         # Don't copy these synthetic attributes
         k == :data_size && continue
@@ -88,8 +89,11 @@ function write(h5ds::Dataset, fbh::Header)
     end
 end
 
-function write(h5::File, fbh::Header)
-    write(h5["data"], fbh)
+function write_attribute(h5::File, fbh::Header)
+    write_attribute(h5["data"], fbh)
 end
+
+@deprecate write(h5ds::Dataset, fbh::Header) write_attribute(h5ds::Dataset, fbh::Header)
+@deprecate write(h5ds::File, fbh::Header) write_attribute(h5ds::File, fbh::Header)
 
 end # module HDF5FilterbankExt
