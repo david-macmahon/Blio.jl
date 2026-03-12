@@ -1,15 +1,15 @@
 module HDF5FilterbankExt
 
-import Blio.Filterbank: Header, fil2h5, mmap
+import Blio.Filterbank: Header, fil2h5, mmap, h52fil
 import Base.write
 import HDF5: write_attribute
 
 if isdefined(Base, :get_extension)
     using HDF5: File, Dataset, h5open, attributes, create_dataset, datatype,
-        write_dataset, Filters
+        write_dataset, Filters, get_chunk
 else
     using ..HDF5: File, Dataset, h5open, attributes, create_dataset, datatype,
-        write_dataset, Filters
+        write_dataset, Filters, get_chunk
 end
 
 """
@@ -75,6 +75,77 @@ function fil2h5(fbname, h5name=replace(fbname, r"\.fil$"=>"") * ".h5";
     close(h5)
 
     h5name
+end
+
+"""
+    h52fil(h5name[, fbname]; kwargs...)
+
+Convert FBH5 HDF5 file `h5name` into SIGPROC filterbank file `fbname`.
+
+`fbname` will default to `h5name` with any `.(h5|fbh5|hdf5)` extension
+removed and a `.fil` extension added.  An exception will be thrown if `h5name`
+already exists.  Additional `kwargs` may be passed to provide additional (and/or
+corrected) SIGPROC Filterbank attributes.
+
+Filterbank data that is `Int8` or `Float32` will be copied directly.  Other data
+types will be converted to `Float32`.  The `nbits` header item will be set
+appropriately.
+
+Any filters required to read the `data` dataset in `h5name` must be loaded
+beforehand (e.g. `using H5Zbitshuffle` if `h5name` uses bitshuffle compression).
+"""
+function h52fil(h5name, fbname=replace(h5name, r"\.(h5|fbh5|hdf5)$"=>"") * ".fil";
+    kwargs...
+)
+    ispath(fbname) && error("$fbname already exists")
+
+    # Open file, make Filterbank.Header, merge in kwargs, get `data` dataset
+    h5 = h5open(h5name)
+    fbh = Header(h5)
+    merge!(fbh, kwargs)
+    data::Dataset = h5["data"]
+    intype = eltype(data)
+    outtype = intype ∈ (UInt8, Int8, Float32) ? intype : Float32
+
+    # Ensure nbits matches outtype
+    fbh[:nbits] = 8*sizeof(outtype)
+
+    # Copy data in batches of size (nchans, nifs, chunksize[3])
+    nchans = fbh[:nchans]
+    nifs = fbh[:nifs]
+    ntpb = get_chunk(data)[3]
+    ibuf = Array{intype}(undef, nchans, nifs, ntpb)
+    obuf = (intype === outtype) ? ibuf : Array{outtype}(undef, nchans, nifs, ntpb)
+
+    nbatches, nleftover = divrem(size(data,3), ntpb)
+
+    open(fbname, "w") do io
+        # Write header
+        write(io, fbh; quiet=true)
+
+        # Copy batches of data
+        i=1
+        for b in 1:nbatches
+            copyto!(ibuf, data, :, :, i:i+ntpb-1)
+            if ibuf !== obuf
+                copyto!(obuf, ibuf)
+            end
+            write(io, obuf)
+            i += ntpb
+        end
+
+        # Copy leftovers
+        ivw = view(ibuf, :, :, 1:nleftover)
+        ovw = view(obuf, :, :, 1:nleftover)
+
+        copyto!(ivw, data, :, :, i:i+nleftover-1)
+        if ibuf !== obuf
+            copyto!(ovw, ivw)
+        end
+        write(io, ovw)
+    end
+
+    fbname
 end
 
 """
