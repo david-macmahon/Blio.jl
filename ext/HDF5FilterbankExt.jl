@@ -55,9 +55,10 @@ function fil2h5(fbname, h5name=replace(fbname, r"\.fil$"=>"") * ".h5";
 
     # Create `data` dataset
     size = (fbh[:nchans], fbh[:nifs], fbh[:nsamps])
+    kwchunk = isempty(chunk) ? () : (; chunk)
     data = if copy
         fbd = open(io->mmap(io, fbh), fbname)
-        ds = create_dataset(h5, "data", Float32, size; chunk, filters)
+        ds = create_dataset(h5, "data", Float32, size; kwchunk..., filters)
         write_dataset(ds, datatype(fbd), fbd)
         ds
     else
