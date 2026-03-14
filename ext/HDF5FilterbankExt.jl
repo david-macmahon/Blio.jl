@@ -6,10 +6,10 @@ import HDF5: write_attribute
 
 if isdefined(Base, :get_extension)
     using HDF5: File, Dataset, h5open, attributes, create_dataset, datatype,
-        write_dataset, Filters, get_chunk
+        write_dataset, Filters, ischunked, get_chunk
 else
     using ..HDF5: File, Dataset, h5open, attributes, create_dataset, datatype,
-        write_dataset, Filters, get_chunk
+        write_dataset, Filters, ischunked, get_chunk
 end
 
 """
@@ -103,17 +103,27 @@ function h52fil(h5name, fbname=replace(h5name, r"\.(h5|fbh5|hdf5)$"=>"") * ".fil
     h5open(h5name) do h5
         fbh = Header(h5)
         merge!(fbh, kwargs)
-        data::Dataset = h5["data"]
+        data = h5["data"]
         intype = eltype(data)
         outtype = intype ∈ (UInt8, Int8, Float32) ? intype : Float32
 
         # Ensure nbits matches outtype
         fbh[:nbits] = 8*sizeof(outtype)
 
-        # Copy data in batches of size (nchans, nifs, chunksize[3])
+        # Copy data in batches of size (nchans, nifs, ntpb)
+        # ntpb is number of time samples per batch.  It is get_chunk(data)[3]
+        # for chunked datasets and a nominal value targeting 1 GB buffer size
+        # for unchunked datasets.
         nchans = fbh[:nchans]
         nifs = fbh[:nifs]
-        ntpb = get_chunk(data)[3]
+        ntpb = if ischunked(data)
+            get_chunk(data)[3]
+        else
+            # Max buffer size is min(1GB, free_memory/16)
+            maxbuf = min(2^30, div(Sys.free_memory(),16))
+            div(maxbuf, sizeof(intype) * nchans * nifs)
+        end
+        ntpb = max(ntpb, 1) # Ensure ntpb is not 0
         ibuf = Array{intype}(undef, nchans, nifs, ntpb)
         obuf = (intype === outtype) ? ibuf : Array{outtype}(undef, nchans, nifs, ntpb)
 
