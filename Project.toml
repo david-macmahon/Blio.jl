@@ -1,6 +1,6 @@
 name = "Blio"
 uuid = "87855aa7-8b24-49b4-b316-97c011f78d17"
-version = "0.6.13"
+version = "0.6.14"
 authors = ["David MacMahon <davidm@astro.berkeley.edu>"]
 
 [deps]
