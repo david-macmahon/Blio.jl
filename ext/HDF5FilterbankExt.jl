@@ -48,32 +48,31 @@ function fil2h5(fbname, h5name=replace(fbname, r"\.fil$"=>"") * ".h5";
 
     fbh = open(io->read(io, Header), fbname)
 
-    h5 = h5open(h5name, "w")
-    # For blimpy compatability
-    write_attribute(h5, "CLASS", "FILTERBANK")
-    write_attribute(h5, "VERSION", "1.0")
+    h5open(h5name, "w") do h5
+        # For blimpy compatability
+        write_attribute(h5, "CLASS", "FILTERBANK")
+        write_attribute(h5, "VERSION", "1.0")
 
-    # Create `data` dataset
-    size = (fbh[:nchans], fbh[:nifs], fbh[:nsamps])
-    kwchunk = isempty(chunk) ? () : (; chunk)
-    data = if copy
-        fbd = open(io->mmap(io, fbh), fbname)
-        ds = create_dataset(h5, "data", Float32, size; kwchunk..., filters)
-        write_dataset(ds, datatype(fbd), fbd)
-        ds
-    else
-        external = (fbname, fbh[:header_size], fbh[:data_size])
-        create_dataset(h5, "data", Float32, size; external)
+        # Create `data` dataset
+        size = (fbh[:nchans], fbh[:nifs], fbh[:nsamps])
+        kwchunk = isempty(chunk) ? () : (; chunk)
+        data = if copy
+            fbd = open(io->mmap(io, fbh), fbname)
+            ds = create_dataset(h5, "data", Float32, size; kwchunk..., filters)
+            write_dataset(ds, datatype(fbd), fbd)
+            ds
+        else
+            external = (fbname, fbh[:header_size], fbh[:data_size])
+            create_dataset(h5, "data", Float32, size; external)
+        end
+
+        # Write fbh as attributes of `data` datset
+        write_attribute(data, fbh)
+        # Allow additional (or corrected) attributes from `kwargs`
+        for (k,v) in kwargs
+            write_attribute(data, string(k), v)
+        end
     end
-
-    # Write fbh as attributes of `data` datset
-    write_attribute(data, fbh)
-    # Allow additional (or corrected) attributes from `kwargs`
-    for (k,v) in kwargs
-        write_attribute(data, string(k), v)
-    end
-
-    close(h5)
 
     h5name
 end
@@ -101,49 +100,50 @@ function h52fil(h5name, fbname=replace(h5name, r"\.(h5|fbh5|hdf5)$"=>"") * ".fil
     ispath(fbname) && error("$fbname already exists")
 
     # Open file, make Filterbank.Header, merge in kwargs, get `data` dataset
-    h5 = h5open(h5name)
-    fbh = Header(h5)
-    merge!(fbh, kwargs)
-    data::Dataset = h5["data"]
-    intype = eltype(data)
-    outtype = intype ∈ (UInt8, Int8, Float32) ? intype : Float32
+    h5open(h5name) do h5
+        fbh = Header(h5)
+        merge!(fbh, kwargs)
+        data::Dataset = h5["data"]
+        intype = eltype(data)
+        outtype = intype ∈ (UInt8, Int8, Float32) ? intype : Float32
 
-    # Ensure nbits matches outtype
-    fbh[:nbits] = 8*sizeof(outtype)
+        # Ensure nbits matches outtype
+        fbh[:nbits] = 8*sizeof(outtype)
 
-    # Copy data in batches of size (nchans, nifs, chunksize[3])
-    nchans = fbh[:nchans]
-    nifs = fbh[:nifs]
-    ntpb = get_chunk(data)[3]
-    ibuf = Array{intype}(undef, nchans, nifs, ntpb)
-    obuf = (intype === outtype) ? ibuf : Array{outtype}(undef, nchans, nifs, ntpb)
+        # Copy data in batches of size (nchans, nifs, chunksize[3])
+        nchans = fbh[:nchans]
+        nifs = fbh[:nifs]
+        ntpb = get_chunk(data)[3]
+        ibuf = Array{intype}(undef, nchans, nifs, ntpb)
+        obuf = (intype === outtype) ? ibuf : Array{outtype}(undef, nchans, nifs, ntpb)
 
-    nbatches, nleftover = divrem(size(data,3), ntpb)
+        nbatches, nleftover = divrem(size(data,3), ntpb)
 
-    open(fbname, "w") do io
-        # Write header
-        write(io, fbh; quiet=true)
+        open(fbname, "w") do io
+            # Write header
+            write(io, fbh; quiet=true)
 
-        # Copy batches of data
-        i=1
-        for b in 1:nbatches
-            copyto!(ibuf, data, :, :, i:i+ntpb-1)
-            if ibuf !== obuf
-                copyto!(obuf, ibuf)
+            # Copy batches of data
+            i=1
+            for b in 1:nbatches
+                copyto!(ibuf, data, :, :, i:i+ntpb-1)
+                if ibuf !== obuf
+                    copyto!(obuf, ibuf)
+                end
+                write(io, obuf)
+                i += ntpb
             end
-            write(io, obuf)
-            i += ntpb
-        end
 
-        # Copy leftovers
-        ivw = view(ibuf, :, :, 1:nleftover)
-        ovw = view(obuf, :, :, 1:nleftover)
+            # Copy leftovers
+            ivw = view(ibuf, :, :, 1:nleftover)
+            ovw = view(obuf, :, :, 1:nleftover)
 
-        copyto!(ivw, data, :, :, i:i+nleftover-1)
-        if ibuf !== obuf
-            copyto!(ovw, ivw)
+            copyto!(ivw, data, :, :, i:i+nleftover-1)
+            if ibuf !== obuf
+                copyto!(ovw, ivw)
+            end
+            write(io, ovw)
         end
-        write(io, ovw)
     end
 
     fbname
