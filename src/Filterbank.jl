@@ -17,6 +17,7 @@ module Filterbank
 using OrderedCollections
 import Mmap
 import ..GuppiRaw
+import ..GuppiRaw: radeg, decdeg
 
 import Base: Array, delete!, empty!, get, getindex, getproperty, iterate,
              length, propertynames, read, read!, setindex!, size, write,
@@ -107,9 +108,13 @@ function Header(grh::GuppiRaw.Header; kwargs...)
         nchan = GuppiRaw.antnchan(grh)
         fbh[:fch1] = grh[:obsfreq] - (nchan - 1) / (2 * nchan) * grh[:obsbw]
     end
-    haskey(grh, :chan_bw) && (fbh[:foff] = grh[:chan_bw])
-    haskey(grh, :ra) && (fbh[:src_raj] = grh[:ra] / 15) # Convert degrees to hours
-    haskey(grh, :dec) && (fbh[:src_dej] = grh[:dec])
+    if haskey(grh, :chan_bw)
+        fbh[:foff] = grh[:chan_bw]
+    elseif haskey(grh, :obsbw) && haskey(grh, :obsnchan)
+        fbh[:foff] = grh[:obsbw] / grh[:obsnchan]
+    end
+    haskey(grh, :ra) && (fbh[:src_raj] = radeg(grh[:ra]) / 15) # Convert degrees to hours
+    haskey(grh, :dec) && (fbh[:src_dej] = decdeg(grh[:dec]))
 
     merge!(getfield(fbh, :dict), kwargs)
 
