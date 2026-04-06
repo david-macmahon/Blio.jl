@@ -4,6 +4,7 @@ version = "0.6.14"
 authors = ["David MacMahon <davidm@astro.berkeley.edu>"]
 
 [deps]
+AstroAngles = "5c4adb95-c1fc-4c53-b4ea-2a94080c53d2"
 Mmap = "a63ad114-7e13-5084-954f-fe012c677804"
 OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
@@ -20,6 +21,7 @@ DimensionalDataFilterbankExt = "DimensionalData"
 HDF5FilterbankExt = "HDF5"
 
 [compat]
+AstroAngles = "0.2.0"
 DataFrames = "1.0.0"
 DimensionalData = "0.29.15"
 HDF5 = "0.16.14,0.17"

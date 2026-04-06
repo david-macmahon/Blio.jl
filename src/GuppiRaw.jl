@@ -20,6 +20,7 @@ See also:
 """
 module GuppiRaw
 
+using AstroAngles
 using Printf
 using OrderedCollections
 import Mmap: mmap
@@ -690,5 +691,33 @@ function resize_hdu(hdu::HeaderDataUnit)::HeaderDataUnit
 
   HeaderDataUnit(hdu.hdr, Array(hdu.hdr))
 end
+
+"""
+    radeg(ra)
+
+Get `ra` as degrees.  This field should be floating point degrees, but some
+files have it as a string in "H:M:S" form or a string in `H.HHH...` form.  If
+the given `ra` is not a `String`, it will be returned unchanged.  If `ra` is a
+`String`, it will be parsed as `H:M:S` and converted to degrees if it contains
+a colon (`:`), otherwise it will be parsed as being in floating point degrees
+format.
+"""
+function radeg(ra::AbstractString)
+    contains(ra, ":") ? hms2deg(ra) : parse(Float64, ra)
+end
+radeg(ra) = ra
+
+"""
+    decdeg(dec)
+
+Get `dec` as degrees.  This field should be floating point degrees, but some
+files have it as a string in "D:M:S" form or a string in `D.DDD...` form.  If
+the given `dec` is not a `String`, it will be returned unchanged.  If `dec` is
+a `String`, it will be parsed as `D:M:S` and converted to degrees if it
+contains a colon (`:`), otherwise it will be parsed as being in floating point
+degrees format.
+"""
+decdeg(dec::AbstractString) = dms2deg(dec)
+decdeg(dec) = dec
 
 end # module GuppiRaw
