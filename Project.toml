@@ -23,7 +23,7 @@ HDF5FilterbankExt = "HDF5"
 [compat]
 AstroAngles = "0.2.0"
 DataFrames = "1.0.0"
-DimensionalData = "0.29.15"
+DimensionalData = "0.29.15,0.30.0"
 HDF5 = "0.16.14,0.17"
 Mmap = "1.11.0"
 OrderedCollections = "1.8.1"
