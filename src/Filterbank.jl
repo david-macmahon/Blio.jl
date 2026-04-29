@@ -85,7 +85,7 @@ function Header(grh::GuppiRaw.Header; kwargs...)
 
     fbh[:telescope_id] = sigproc_telescope_id(get(grh, :telescop, ""))
     fbh[:machine_id] = -1
-    fbh[:data_type] = 1
+    fbh[:data_type] = 2 # Time series
     fbh[:barycentric] = 0
     fbh[:pulsarcentric] = 0
     fbh[:nbeams] = 1
