@@ -166,8 +166,8 @@ end
 Create `Filterbank.Header` object from dataset `h5ds` or `h5["data"]`.
 
 The names/types of the attributes are not checked for Filterbank validity.  The
-`data_size` and `nsamps` attributes will be added to the `Header` object if they
-do not exist as attributes.
+`data_size`, `nbits`, `nchans`, `nifs`, and `nsamps` attributes will be added
+to the `Header` object if they do not exist as attributes.
 """
 function Header(h5ds::Dataset)::Header
     fbh = Header()
@@ -180,6 +180,15 @@ function Header(h5ds::Dataset)::Header
     # Add :data_size and :nsamps if not present
     if !haskey(fbh, :data_size)
         fbh[:data_size] = sizeof(eltype(h5ds)) * prod(size(h5ds))
+    end
+    if !haskey(fbh, :nbits)
+        fbh[:nbits] = 8 * sizeof(eltype(h5ds))
+    end
+    if !haskey(fbh, :nchans)
+        fbh[:nchans] = size(h5ds, 1)
+    end
+    if !haskey(fbh, :nifs) || ndims(h5ds) == 3
+        fbh[:nifs] = size(h5ds, 2)
     end
     if !haskey(fbh, :nsamps)
         fbh[:nsamps] = size(h5ds, ndims(h5ds))
