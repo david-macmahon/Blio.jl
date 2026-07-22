@@ -396,8 +396,8 @@ If `NANTS` is 1 or unspecified, the Array will be dimensioned as [npol, ntime,
 nchan] to match the RAW data block layout.
 
 If `NANTS` is greater than 1 and `nchan` is a multiple of `OBSNCHAN/NANTS`,
-then the returned array will be dimensioned as [npol, ntime, obsnchan/nants,
-nchan*nants/obschan] (i.e. it will have an extra antenna dimension).
+then the returned array will be dimensioned as `(npol, ntime, obsnchan/nants,
+nchan*nants/obschan)`, i.e. it will have an extra antenna dimension.
 """
 function Array(grh::Header, nchan::Int=0)::RawArray
   @assert haskey(grh, :obsnchan) "header has no obsnchan field"
