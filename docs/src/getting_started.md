@@ -1,0 +1,163 @@
+# Getting Started
+
+This page walks through a few common tasks you can perform with Blio.jl.  The
+examples below assume that you have already installed Blio.jl as described in
+the [Home](index.md) page.  To use Blio you must load it by including a line
+like this in your code:
+
+```julia
+using Blio
+```
+
+Blio exports two submodules: [`Filterbank`](@ref) and [`GuppiRaw`](@ref).
+Everything in this manual lives in one of those two modules.
+
+## Reading a Filterbank file
+
+A SIGPROC Filterbank file consists of a single header followed by all of the
+spectra.  The easiest way to open one is with [`Filterbank.mmap`](@ref):
+
+```julia
+fbh, data = Filterbank.mmap("mydata.fil")
+```
+
+`fbh` is a [`Filterbank.Header`](@ref) and `data` is a memory-mapped array of
+shape `(nchans, nifs, nsamps)`.  For 8-bit Stokes I data the element type will
+be `UInt8`; for 8-bit multi-IF data it will be `Int8`; and for 32-bit data it
+will be `Float32`.
+
+If you only need the header, you can read it directly:
+
+```julia
+fbh = open(io -> read(io, Filterbank.Header), "mydata.fil")
+```
+
+### Channel frequencies
+
+Use [`Filterbank.chanfreq`](@ref Filterbank.chanfreq(::Any, ::Real)) and
+[`Filterbank.chanfreqs`](@ref Filterbank.chanfreqs(::Any)) to compute the
+center frequency of any channel:
+
+```julia
+Filterbank.chanfreq(fbh, 1)                 # frequency of the first channel
+Filterbank.chanfreqs(fbh)                   # all channel center frequencies
+Filterbank.chanfreqs(fbh, 1:100)            # the first 100 channel frequencies
+```
+
+## Writing a Filterbank file
+
+To write a Filterbank file, populate a [`Filterbank.Header`](@ref) and use
+`Base.write`:
+
+```julia
+fbh = Filterbank.Header()
+fbh[:source_name] = "Demo"
+fbh[:nchans]      = 1024
+fbh[:nifs]        = 1
+fbh[:nbits]       = 32
+fbh[:fch1]        = 1000.0
+fbh[:foff]        = -1.0
+fbh[:tsamp]       = 1e-3
+fbh[:tstart]      = 60000.0
+# ...and any other fields needed by your downstream tools
+
+data = Array(fbh, nsamps)  # allocate an appropriately sized array
+# ...fill `data` with spectra...
+
+open("out.fil", "w") do io
+    write(io, fbh)
+    write(io, data)
+end
+```
+
+See [`Base.Array`](@ref Base.Array(::Blio.Filterbank.Header, ::Integer)) for
+the array allocation helper.
+
+## Reading a GUPPI Raw file
+
+A GUPPI Raw file is a sequence of *header + data block* pairs.  Each header
+describes the layout of the data block that immediately follows it.  The
+simplest way to read an entire file is to use [`GuppiRaw.load`](@ref):
+
+```julia
+headers, datablocks = GuppiRaw.load("mydata.raw")
+```
+
+`headers` will be a `Vector{GuppiRaw.Header}` and `datablocks` will be a
+`Vector` of memory-mapped arrays.  Each element of `datablocks` corresponds to
+the header at the same position in `headers`.
+
+To read just the headers (without `mmap`-ing the data blocks), pass
+`datablocks=false`:
+
+```julia
+headers, _ = GuppiRaw.load("mydata.raw"; datablocks=false)
+```
+
+### Working with headers
+
+A [`GuppiRaw.Header`](@ref Blio.GuppiRaw.Header) behaves like an `OrderedDict{Symbol, Any}` but also
+allows field-style access for known keywords:
+
+```julia
+grh = first(headers)
+
+grh[:obsfreq]    # access via getindex
+grh.obsfreq      # access via getproperty
+grh.observant    # -> nothing for unknown keywords
+```
+
+You can iterate over the header just as you would with a `Dict`:
+
+```julia
+for (k, v) in grh
+    println(k, " = ", v)
+end
+```
+
+### Working with data blocks
+
+A data block returned by `GuppiRaw.load` is an `Array{Complex{<:Integer}}`.
+For a file with `NANTS=1` and `NBITS=8` it will be a
+`Array{Complex{Int8}, 3}` indexed as `[npol, ntime, nchan]`.  When `NANTS>1`
+the array gains an extra trailing antenna dimension.  If `NANTS` is not present,
+it will be assumed to be `1`.
+
+See [`GuppiRaw.blocksize`](@ref) and [`GuppiRaw.blocktype`](@ref) for the
+exact layout described by a given header.
+
+## Converting GuppiRaw.Header to Filterbank.Header
+
+You can create a [`Filterbank.Header`](@ref Blio.Filterbank.Header) from a
+[`GuppiRaw.Header`](@ref Blio.GuppiRaw.Header) with the
+[`Filterbank.Header`](@ref Blio.Filterbank.Header) constructor:
+
+```julia
+grh = first(headers)
+fbh = Filterbank.Header(grh)
+```
+
+Keyword arguments may be passed to override any of the derived defaults:
+
+```julia
+fbh = Filterbank.Header(grh; nbits=8, source_name="MySource")
+```
+
+## Converting between `.fil` and `.h5`
+
+If you also load [HDF5.jl](https://github.com/JuliaIO/HDF5.jl), the
+`fil2h5` and `h52fil` functions become available:
+
+```julia
+using HDF5
+
+Filterbank.fil2h5("mydata.fil")            # creates "mydata.h5" that references data in "mydata.fil"
+Filterbank.fil2h5("mydata.fil"; copy=true) # same thing, but copies data into the HDF5 file
+Filterbank.h52fil("mydata.h5")             # creates "mydata.fil" from "mydata.h5"
+```
+
+See [Extensions](@ref) for more about the optional extension modules.
+
+---
+
+*This documentation was initially generated by [opencode](https://opencode.ai) (powered by the openai/GLM-5.2 model) and subsequently reviewed and edited by the package author.*
