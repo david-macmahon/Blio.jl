@@ -2,21 +2,20 @@
 Module for interacting with GuppiRaw files.
 
 See also:
-[`GuppiRaw.Header`](@ref),
-[`GuppiRaw.HeaderDataUnit`](@ref),
-[`GuppiRaw.load(io::IO; headers=[], datablocks=[]`](@ref),
-[`Base.read!(io::IO, grh::GuppiRaw.Header)`](@ref),
-[`Base.read(io::IO, ::Type{GuppiRaw.Header})`](@ref),
-[`Base.write(io::IO, grh::GuppiRaw.Header)`](@ref),
-[`Base.Array(grh::GuppiRaw.Header, nchan::Int=0)`](@ref)
-[`blocksize(GuppiRaw.Header)`](@ref),
-[`blocktype(GuppiRaw.Header)`](@ref),
-[`chanfreq(grh::GuppiRaw.Header, chan::Real)`](@ref)
-[`chanfreqs(grh::GuppiRaw.Header, chans::AbstractRange)`](@ref)
-[`getntime(GuppiRaw.Header)`](@ref)
-[`resize_hdu(hdu::GuppiRaw.HeaderDataUnit)`](@ref)
-[`parse_header!(grh::GuppiRaw.Header, buf::Array{Uint8,2}, endidx)`](@ref)
-[`parse_header!(grh::GuppiRaw.Header, buf::Array{Uint8,2})`](@ref)
+[`Header`](@ref),
+[`HeaderDataUnit`](@ref),
+[`load`](@ref),
+[`Base.read!`](@ref),
+[`Base.read`](@ref),
+[`Base.write`](@ref),
+[`Base.Array`](@ref),
+[`blocksize`](@ref),
+[`blocktype`](@ref),
+[`chanfreq`](@ref),
+[`chanfreqs`](@ref),
+[`getntime`](@ref),
+[`resize_hdu`](@ref),
+[`parse_header!`](@ref)
 """
 module GuppiRaw
 
@@ -481,8 +480,8 @@ sizing and/or frequency attributes).  If the file is considered valid, the
 function should return `true`.  If the file is not considered valid, the
 function may return false, which will cause `load` to return `headers` and
 `datablocks` unmodified for that file, or it may raise an exception if desired
-(which will also stop any further the loading).  Note that when multiple
-filenames are given, `predicate` is passed the first header of each file
+(which will also stop any further loading).  Note that when multiple filenames
+are given, `predicate` is passed the first header of each file
 independently.
 
 Returns the tuple `(headers, datablocks)`, even when `datablocks` is `false`.

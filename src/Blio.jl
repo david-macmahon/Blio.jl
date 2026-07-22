@@ -1,5 +1,5 @@
 """
-Breakthrough Listem I/O for Julia.
+Breakthrough Listen I/O for Julia.
 
 Currently supports GuppiRaw and Filterbank file formats.
 

@@ -2,15 +2,15 @@
 Module for interacting with Filterbank files.
 
 See also:
-[`Filterbank.Header`](@ref),
-[`Base.read!(io::IO, fbh::Filterbank.Header)`](@ref),
-[`Base.read(io::IO, ::Type{Filterbank.Header})`](@ref),
-[`Base.write(io::IO, fbh::Filterbank.Header)`](@ref),
-[`Base.Array(fbh::Filterbank.Header, nspec::Int=1; <kwargs>)`](@ref)
-[`chanfreq(fbh::Filterbank.Header, chan::Real)`](@ref)
-[`chanfreqs(fbh::Filterbank.Header, chans::AbstractRange)`](@ref)
-[`datasize(fbh::Filterbank.Header[, dim]; <kwargs>)`](@ref),
-[`maskdc!(a::Array{Number}, ncoarse::Integer)`](@ref)
+[`Header`](@ref),
+[`Base.read!`](@ref),
+[`Base.read`](@ref),
+[`Base.write`](@ref),
+[`Base.Array`](@ref),
+[`chanfreq`](@ref),
+[`chanfreqs`](@ref),
+[`datasize`](@ref),
+[`maskdc!`](@ref)
 """
 module Filterbank
 
@@ -356,7 +356,7 @@ end
 """
     read_header_item(io::IO)
 
-Call [`read_header_item(f::Function, io::IO)`](@ref) with `io` and
+Call [`read_header_item`](@ref) with `io` and
 a no-op function for `f`.  Return `(keyword, value)`.
 """
 function read_header_item(io::IO)
@@ -762,11 +762,11 @@ function chanfreqs(fbh, chans::AbstractRange)::AbstractRange
        )
 end
 
-"""
-Dictionary mapping some telescope names to SIGPROC *telescope_id* codes
-(integers).  These mappings are from copied from `rawspec_fbutils.c`, which has
-distilled them from the various sigproc code bases.
-"""
+# """
+# Dictionary mapping some telescope names to SIGPROC *telescope_id* codes
+# (integers).  These mappings are from copied from `rawspec_fbutils.c`, which
+# has distilled them from the various sigproc code bases.
+# """
 const TELESCOPE_NAME_TO_SIGPROC_ID = Dict{String, Int}(
     "FAKE"       => 0,
     "ARECIBO"    => 1,
@@ -790,12 +790,12 @@ const TELESCOPE_NAME_TO_SIGPROC_ID = Dict{String, Int}(
     "MEERKAT"    => 64
 )
 
-"""
-     sigproc_telescope_id(telescope_name) -> telescope_id
-
-Lookup the the SIGPROC `telescope_id` for the given `telescope_name`.  Returns
-`-1` for unknown telescopes.
-"""
+# """
+#      sigproc_telescope_id(telescope_name) -> telescope_id
+# 
+# Lookup the the SIGPROC `telescope_id` for the given `telescope_name`.  Returns
+# `-1` for unknown telescopes.
+# """
 function sigproc_telescope_id(telescope_name)
     get(TELESCOPE_NAME_TO_SIGPROC_ID, uppercase(telescope_name), -1)
 end
