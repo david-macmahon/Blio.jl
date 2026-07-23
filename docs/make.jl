@@ -11,7 +11,7 @@ makedocs(
     authors = "David MacMahon",
     modules = [Blio],
     format = Documenter.HTML(
-        canonical = "https://astroartifacts.github.io/Blio.jl/stable/",
+        canonical = "https://david-macmahon.github.io/Blio.jl/stable/",
         prettyurls = get(ENV, "CI", nothing) == "true",
     ),
     pages = [
@@ -27,7 +27,6 @@ makedocs(
 )
 
 deploydocs(
-    repo = "github.com/astroartifacts/Blio.jl.git",
+    repo = "github.com/david-macmahon/Blio.jl.git",
     devbranch = "main",
-    push_preview = true,
 )

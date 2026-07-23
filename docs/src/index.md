@@ -34,7 +34,7 @@ directly from the GitHub repository:
 
 ```julia
 using Pkg
-Pkg.add(url = "https://github.com/astroartifacts/Blio.jl.git")
+Pkg.add(url = "https://github.com/david-macmahon/Blio.jl.git")
 ```
 
 ## Overview
